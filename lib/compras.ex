@@ -6,10 +6,6 @@ defmodule Libremarket.Compras do
     {:show_me_the_money}
   end
 
-  def iniciar_compra() do
-    {:show_me_the_money}
-  end
-
   def seleccionar_producto() do
     {:select_items}
   end
@@ -22,7 +18,7 @@ defmodule Libremarket.Compras do
       {:ok,"retiro"}
     end
   end
-  
+
   def confirmar_compra() do
     x = :rand.uniform(100)
     if (x>=30) do
@@ -33,10 +29,10 @@ defmodule Libremarket.Compras do
       {:error}
     end
   end
- 
+
   def seleccionar_pago() do
     {:metodo_de_pago}
-  end 
+  end
 end
 
 defmodule Libremarket.Compras.Server do
@@ -59,17 +55,32 @@ defmodule Libremarket.Compras.Server do
     GenServer.call(pid, :comprar)
   end
 
-  def seleccionar_producto(pid \\ __MODULE__) do
-    GenServer.call(pid, :seleccionar_producto)
+
+  def iniciar_comprar(pid \\ __MODULE__, id) do
+    GenServer.call(pid, {:iniciar_comprar, id})
   end
 
-  def seleccionar_entrega(pid \\ __MODULE__) do
-    GenServer.call(pid, :seleccionar_entrega)
+  def seleccionar_producto(pid \\ __MODULE__,id,id_producto) do
+    GenServer.call(pid, {:seleccionar_producto,id,id_producto})
   end
 
-  def seleccionar_pago(pid \\ __MODULE__) do
-    GenServer.call(pid, :seleccionar_pago)
+  def seleccionar_entrega(pid \\ __MODULE__,id) do
+    GenServer.call(pid, {:seleccionar_entrega,id})
   end
+
+  def seleccionar_pago(pid \\ __MODULE__, id) do
+    GenServer.call(pid, {:seleccionar_pago, id})
+  end
+
+  def confirmar_pago(pid \\ __MODULE__) do
+    GenServer.call(pid, :confirmar_compra)
+  end
+
+  def listar(pid \\ __MODULE__) do
+    GenServer.call(pid, :listar)
+  end
+
+
 
   # Callbacks
   # EL STATE DE COMPRAS ES LA LISTA DE COMPRAS, como diccionario xddd
@@ -78,8 +89,8 @@ defmodule Libremarket.Compras.Server do
   Inicializa el estado del servidor
   """
   @impl true
-  def init(state) do
-    {:ok, state}
+  def init(_state) do
+    {:ok, %{}}
   end
 
   @doc """
@@ -91,26 +102,35 @@ defmodule Libremarket.Compras.Server do
     {:reply, result, state}
   end
 
-  def handle_call({:seleccionar_producto,id,id_producto}, _from, state) do
-    Libremarket.Compras.seleccionar_pago()
-    Libremarket.Compras.Server.confirmar_compra()
-    #estara bien devolver esto?
-    {:reply, state, state}
+  def handle_call({:iniciar_comprar,id}, _from, state) do
+    new_state = Map.put_new(state,id,%{})
+    {:reply, id, new_state}
   end
 
-  def handle_call(:seleccionar_entrega, _from, state) do
+  def handle_call({:seleccionar_producto,id,id_producto}, _from, state) do
+    # falta llamar a reservar producto
+    infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
+    new_compra = Map.put_new(state[id],"inf", infraccion)
+    new_state = Map.put(state,id,new_compra)
+    Libremarket.Compras.seleccionar_entrega()
+    {:reply, new_compra, new_state}
+  end
+
+  def handle_call({:seleccionar_entrega,id}, _from, state) do
     metodo_entrega = Libremarket.Compras.seleccionar_entrega()
     case metodo_entrega do
-      {:ok, "correo"} -> Libremarket.Envios.Server.calcular_costo() 
-      # falta llamar a seleccionar pago desde aca no?
-      # tambien deberia guardar en el esto que responde 
-      {:ok, "retiro"} -> Libremarket.Compras.Server.seleccionar_pago()
-    {:reply, state, state}
+      {:ok, "correo"} -> costo = Libremarket.Envios.Server.calcular_costo()
+      new_c = Map.put_new(state[id],"costo", costo)
+      state = Map.put(state,id,new_c)
+      #{:ok, "retiro"} -> Libremarket.Compras.Server.seleccionar_pago()
+    end
+    new_compra = Map.put_new(state[id],"entrega", metodo_entrega)
+    new_state = Map.put(state,id,new_compra)
+    #Libremarket.Compras.Server.seleccionar_pago(id) 
+    {:reply, new_compra, new_state}
   end
 
-  def handle_call(:seleccionar_pago, _from, state) do
-    Libremarket.Compras.seleccionar_pago()
-    Libremarket.Compras.Server.confirmar_compra()
+  def handle_call({:seleccionar_pago,id}, _from, state) do
     #estara bien devolver esto?
     {:reply, state, state}
   end
@@ -119,6 +139,11 @@ defmodule Libremarket.Compras.Server do
     result = Libremarket.Compras.confirmar_compra()
     # aca deberia buscar en el estado, con el id de compra, al resultado del la consulta de infracciones
     {:reply, result, state}
+  end
+
+  @impl true
+  def handle_call(:listar, _from, state) do
+    {:reply, state, state}
   end
 
 
