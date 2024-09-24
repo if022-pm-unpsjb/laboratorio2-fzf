@@ -10,6 +10,14 @@ defmodule Libremarket.Compras do
     {:select_items}
   end
 
+  def informar_infraccion() do
+    {:infraccion_informada}
+  end
+
+  def informar_pago_rechazado() do
+    {:pago_rechazado_informado}
+  end
+
   def seleccionar_entrega() do
     x = :rand.uniform(100)
     if (x>=20) do
@@ -26,7 +34,7 @@ defmodule Libremarket.Compras do
       {:ok}
     else
       # no confirma la compra
-      {:error}
+      {:cancel}
     end
   end
 
@@ -39,7 +47,6 @@ defmodule Libremarket.Compras.Server do
   @moduledoc """
   Compras
   """
-
   use GenServer
 
   # API del cliente
@@ -54,7 +61,6 @@ defmodule Libremarket.Compras.Server do
   def comprar(pid \\ __MODULE__) do
     GenServer.call(pid, :comprar)
   end
-
 
   def iniciar_comprar(pid \\ __MODULE__, id) do
     GenServer.call(pid, {:iniciar_comprar, id})
@@ -72,15 +78,13 @@ defmodule Libremarket.Compras.Server do
     GenServer.call(pid, {:seleccionar_pago, id})
   end
 
-  def confirmar_pago(pid \\ __MODULE__) do
-    GenServer.call(pid, :confirmar_compra)
+  def confirmar_pago(pid \\ __MODULE__,id) do
+    GenServer.call(pid, {:confirmar_compra,id})
   end
 
   def listar(pid \\ __MODULE__) do
     GenServer.call(pid, :listar)
   end
-
-
 
   # Callbacks
   # EL STATE DE COMPRAS ES LA LISTA DE COMPRAS, como diccionario xddd
@@ -110,43 +114,52 @@ defmodule Libremarket.Compras.Server do
   def handle_call({:seleccionar_producto,id,id_producto}, _from, state) do
     # falta llamar a reservar producto
     infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
-    new_compra = Map.put_new(state[id],"inf", infraccion)
+    new_compra = Map.put_new(state[id],"infraccion", infraccion)
     new_state = Map.put(state,id,new_compra)
-    Libremarket.Compras.seleccionar_entrega()
     {:reply, new_compra, new_state}
   end
 
+  # falta sacarle los ok que quedan en el mapa
   def handle_call({:seleccionar_entrega,id}, _from, state) do
     metodo_entrega = Libremarket.Compras.seleccionar_entrega()
+    costo =
     case metodo_entrega do
-      {:ok, "correo"} -> costo = Libremarket.Envios.Server.calcular_costo()
-      new_c = Map.put_new(state[id],"costo", costo)
-      state = Map.put(state,id,new_c)
-      #{:ok, "retiro"} -> Libremarket.Compras.Server.seleccionar_pago()
+      {:ok, "correo"} -> Libremarket.Envios.Server.calcular_costo(id)
+      {:ok, "retiro"} -> 0
+      _-> 0
     end
-    new_compra = Map.put_new(state[id],"entrega", metodo_entrega)
-    new_state = Map.put(state,id,new_compra)
-    #Libremarket.Compras.Server.seleccionar_pago(id) 
-    {:reply, new_compra, new_state}
+	new_compra =
+		(state[id] || %{})
+		|> Map.put_new("entrega", {metodo_entrega, costo})
+		|> Map.put("pago", Libremarket.Compras.seleccionar_pago())
+
+	new_state = Map.put(state,id,new_compra)
+	{:reply, new_compra, new_state}
   end
 
+  # no lo uso realmente, lo llamo en seleccionar entrega, por que este es automatico xddd
   def handle_call({:seleccionar_pago,id}, _from, state) do
-    #estara bien devolver esto?
     {:reply, state, state}
   end
 
-  def handle_call(:confirmar_compra, _from, state) do
+  def handle_call({:confirmar_compra, id}, _from, state) do
     result = Libremarket.Compras.confirmar_compra()
-    # aca deberia buscar en el estado, con el id de compra, al resultado del la consulta de infracciones
-    {:reply, result, state}
+	new_compra=Map.put_new(state[id],"confirmacion", result)
+	case (state[id])["infraccion"] do
+		{:ok}-> autorizacion= Libremarket.Pagos.Server.autorizar(id) 
+		new_compra = Map.put(new_compra, "autorizacion", autorizacion)
+		IO.puts("por que no guarda la autorizacionXDDD")
+		{:infraccion} -> Libremarket.Compras.informar_infraccion() 
+	end
+
+	new_state= Map.put(state,id,new_compra)
+    {:reply, new_compra, new_state}
   end
 
   @impl true
   def handle_call(:listar, _from, state) do
     {:reply, state, state}
   end
-
-
 
     """
     notix:
