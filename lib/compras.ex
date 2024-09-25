@@ -140,10 +140,12 @@ defmodule Libremarket.Compras.Server do
     {:reply, new_compra, new_state}
   end
 
+  """
   # no lo uso realmente, lo llamo en seleccionar entrega, por que este es automatico xddd
   def handle_call({:seleccionar_pago, id}, _from, state) do
     {:reply, state, state}
   end
+  """
 
   def handle_call({:confirmar_compra, id}, _from, state) do
     result = Libremarket.Compras.confirmar_compra()
