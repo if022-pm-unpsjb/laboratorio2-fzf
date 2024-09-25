@@ -1,14 +1,13 @@
 defmodule Libremarket.Infracciones do
-
   def detectar() do
     x = :rand.uniform(100)
-    if (x>=30) do
-      {:ok}
+
+    if x >= 30 do
+      false
     else
-      {:infraccion}
+      true
     end
   end
-
 end
 
 defmodule Libremarket.Infracciones.Server do
@@ -28,17 +27,16 @@ defmodule Libremarket.Infracciones.Server do
   end
 
   def detectar(pid \\ __MODULE__, id) do
-    GenServer.call(pid, {:detectar,id})
+    GenServer.call(pid, {:detectar, id})
   end
 
   def inspeccionar(pid \\ __MODULE__, id) do
-    GenServer.call(pid, {:inspeccionar,id})
+    GenServer.call(pid, {:inspeccionar, id})
   end
 
   def listar_infracciones(pid \\ __MODULE__) do
     GenServer.call(pid, :listar)
   end
-
 
   # Callbacks
 
@@ -54,9 +52,9 @@ defmodule Libremarket.Infracciones.Server do
   Callback para un call :detectar
   """
   @impl true
-  def handle_call({:detectar,id}, _from, state) do
+  def handle_call({:detectar, id}, _from, state) do
     result = Libremarket.Infracciones.detectar()
-    {:reply, result, [{result,id}| state]}
+    {:reply, result, [{result, id} | state]}
   end
 
   @impl true
@@ -65,11 +63,8 @@ defmodule Libremarket.Infracciones.Server do
   end
 
   @impl true
-  def handle_call({:inspeccionar,id}, _from, state) do
-    result= raise("ops")
-    {:reply, result, [{result,id}| state]}
+  def handle_call({:inspeccionar, id}, _from, state) do
+    result = raise("ops")
+    {:reply, result, [{result, id} | state]}
   end
-
-
-
 end
