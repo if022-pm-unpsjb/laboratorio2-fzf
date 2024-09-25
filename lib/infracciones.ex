@@ -5,7 +5,7 @@ defmodule Libremarket.Infracciones do
     if (x>=30) do
       {:ok}
     else
-      {:error_logger}
+      {:infraccion}
     end
   end
 
