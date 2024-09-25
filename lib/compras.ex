@@ -32,10 +32,10 @@ defmodule Libremarket.Compras do
 
     if x >= 30 do
       # confirma la compra
-      {:ok}
+      true
     else
       # no confirma la compra
-      {:cancel}
+      false
     end
   end
 
@@ -145,25 +145,24 @@ defmodule Libremarket.Compras.Server do
   def handle_call({:seleccionar_pago, id}, _from, state) do
     {:reply, state, state}
   end
-  """
+    """
 
-  def handle_call({:confirmar_compra, id}, _from, state) do
-    result = Libremarket.Compras.confirmar_compra()
-    new_compra = Map.put_new(state[id], "confirmacion", result)
+def handle_call({:confirmar_compra, id}, _from, state) do
+  result = Libremarket.Compras.confirmar_compra()
+  new_compra = Map.put_new(state[id], "confirmacion", result)
 
-    case state[id]["infraccion"] do
-      false ->
-        autorizacion = Libremarket.Pagos.Server.autorizar(id)
-        new_compra = Map.put(new_compra, "autorizacion", autorizacion)
-        IO.puts("por que no guarda la autorizacionXDDD")
-
-      true ->
-        Libremarket.Compras.informar_infraccion()
-    end
-
-    new_state = Map.put(state, id, new_compra)
-    {:reply, new_compra, new_state}
+  new_compra = case state[id]["infraccion"] do
+    false ->
+      autorizacion = Libremarket.Pagos.Server.autorizar(id)
+      Map.put(new_compra, "autorizacion", autorizacion)
+    true ->
+      Libremarket.Compras.informar_infraccion()
+      new_compra
   end
+
+  new_state = Map.put(state, id, new_compra)
+  {:reply, new_compra, new_state}
+end
 
   @impl true
   def handle_call(:listar, _from, state) do

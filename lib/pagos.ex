@@ -3,9 +3,9 @@ defmodule Libremarket.Pagos do
   def autorizar() do
     x = :rand.uniform(100)
     if (x>=30) do
-      {:ok}
+      true
     else
-      {:rechazado}
+      false 
     end
   end
 
