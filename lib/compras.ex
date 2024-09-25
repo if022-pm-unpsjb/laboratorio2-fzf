@@ -78,7 +78,7 @@ defmodule Libremarket.Compras.Server do
     GenServer.call(pid, {:seleccionar_pago, id})
   end
 
-  def confirmar_pago(pid \\ __MODULE__,id) do
+  def confirmar_compra(pid \\ __MODULE__,id) do
     GenServer.call(pid, {:confirmar_compra,id})
   end
 
@@ -137,10 +137,12 @@ defmodule Libremarket.Compras.Server do
 	{:reply, new_compra, new_state}
   end
 
+  """
   # no lo uso realmente, lo llamo en seleccionar entrega, por que este es automatico xddd
   def handle_call({:seleccionar_pago,id}, _from, state) do
     {:reply, state, state}
   end
+  """
 
   def handle_call({:confirmar_compra, id}, _from, state) do
     result = Libremarket.Compras.confirmar_compra()
@@ -148,8 +150,9 @@ defmodule Libremarket.Compras.Server do
 	case (state[id])["infraccion"] do
 		{:ok}-> autorizacion= Libremarket.Pagos.Server.autorizar(id) 
 		new_compra = Map.put(new_compra, "autorizacion", autorizacion)
-		IO.puts("por que no guarda la autorizacionXDDD")
+		IO.puts("opcion con ok")
 		{:infraccion} -> Libremarket.Compras.informar_infraccion() 
+        IO.puts("opcion con infraccion")
 	end
 
 	new_state= Map.put(state,id,new_compra)
