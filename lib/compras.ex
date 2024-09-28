@@ -21,9 +21,9 @@ defmodule Libremarket.Compras do
     x = :rand.uniform(100)
 
     if x >= 20 do
-      {:ok, "correo"}
+      "correo"
     else
-      {:ok, "retiro"}
+      "retiro"
     end
   end
 
@@ -113,21 +113,21 @@ defmodule Libremarket.Compras.Server do
   end
 
   def handle_call({:seleccionar_producto, id, id_producto}, _from, state) do
-    # falta llamar a reservar producto
+    # TODO: Revisar metodo y llamada
+    # Libremarket.Ventas.Server.reservar_producto(id_producto)
     infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
     new_compra = Map.put_new(state[id], "infraccion", infraccion)
     new_state = Map.put(state, id, new_compra)
     {:reply, new_compra, new_state}
   end
 
-  # falta sacarle los ok que quedan en el mapa
   def handle_call({:seleccionar_entrega, id}, _from, state) do
     metodo_entrega = Libremarket.Compras.seleccionar_entrega()
 
     costo =
       case metodo_entrega do
-        {:ok, "correo"} -> Libremarket.Envios.Server.calcular_costo(id)
-        {:ok, "retiro"} -> 0
+        "correo" -> Libremarket.Envios.Server.calcular_costo(id)
+        "retiro" -> 0
         _ -> 0
       end
 
@@ -140,42 +140,42 @@ defmodule Libremarket.Compras.Server do
     {:reply, new_compra, new_state}
   end
 
-  """
-  # no lo uso realmente, lo llamo en seleccionar entrega, por que este es automatico xddd
-  def handle_call({:seleccionar_pago, id}, _from, state) do
-    {:reply, state, state}
+  def handle_call({:confirmar_compra, id}, _from, state) do
+    result = Libremarket.Compras.confirmar_compra()
+    if result == false do
+      {:reply, Map.put_new(state[id], "confirmacion", result), state}
+    else
+      new_compra = Map.put_new(state[id], "confirmacion", result)
+
+      new_compra =
+        case state[id]["infraccion"] do
+          false ->
+            autorizacion = Libremarket.Pagos.Server.autorizar(id)
+
+            if autorizacion do
+              case elem(state[id]["entrega"], 0) do
+                "correo" -> Libremarket.Envios.Server.agendar_envio(id)
+                # No hace nada si es "retiro" u otro método
+                _ -> :ok
+              end
+            else
+              Libremarket.Compras.informar_pago_rechazado()
+            end
+
+            Map.put(new_compra, "autorizacion", autorizacion)
+
+          true ->
+            Libremarket.Compras.informar_infraccion()
+            new_compra
+        end
+
+      new_state = Map.put(state, id, new_compra)
+      {:reply, new_compra, new_state}
+    end
   end
-    """
-
-def handle_call({:confirmar_compra, id}, _from, state) do
-  result = Libremarket.Compras.confirmar_compra()
-  new_compra = Map.put_new(state[id], "confirmacion", result)
-
-  new_compra = case state[id]["infraccion"] do
-    false ->
-      autorizacion = Libremarket.Pagos.Server.autorizar(id)
-      Map.put(new_compra, "autorizacion", autorizacion)
-    true ->
-      Libremarket.Compras.informar_infraccion()
-      new_compra
-  end
-
-  new_state = Map.put(state, id, new_compra)
-  {:reply, new_compra, new_state}
-end
 
   @impl true
   def handle_call(:listar, _from, state) do
     {:reply, state, state}
   end
-
-  """
-  notix:
-    esto empieza con iniciar compra, me devuelve un id, que yo se lo pase tambien ese id,
-  ahi inicia un diccionario con ese id,
-  Despues le hago el seleccionar_producto, le paso el id del producto y el id de la compra
-
-  seria como stateless
-
-  """
 end

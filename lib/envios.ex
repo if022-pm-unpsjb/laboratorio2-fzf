@@ -74,17 +74,3 @@ defmodule Libremarket.Envios.Server do
     {:reply, new_compra, new_state}
   end
 end
-
-"""
-usar estos diccionarios con clave valor en para estado y costo
-
-iex(1)> v= %{"a" => "valor",1=>"otrovalor"}
-%{1 => "otrovalor", "a" => "valor"}
-iex(2)> v[1]
-"otrovalor"
-iex(3)> Map.put(v,13,"asdf")
-%{1 => "otrovalor", 13 => "asdf", "a" => "valor"}
-iex(4)> v[13]
-nil
-iex(5)> v[13]
-"""
