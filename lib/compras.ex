@@ -38,9 +38,9 @@ defmodule Libremarket.Compras do
       false
     end
   end
-
   def seleccionar_pago() do
-    {:metodo_de_pago}
+    opciones_pago = [:debito, :credito, :transferencia]
+    Enum.random(opciones_pago)
   end
 end
 
@@ -142,10 +142,13 @@ defmodule Libremarket.Compras.Server do
 
   def handle_call({:confirmar_compra, id}, _from, state) do
     result = Libremarket.Compras.confirmar_compra()
+    new_compra = Map.put(state[id] || %{}, "confirmacion", result)
+
     if result == false do
-      {:reply, Map.put_new(state[id], "confirmacion", result), state}
+      # Devolver el estado con la confirmación false
+      new_state = Map.put(state, id, new_compra)
+      {:reply, new_compra, new_state}
     else
-      new_compra = Map.put_new(state[id], "confirmacion", result)
 
       new_compra =
         case state[id]["infraccion"] do
@@ -159,7 +162,7 @@ defmodule Libremarket.Compras.Server do
                 _ -> :ok
               end
             else
-              Libremarket.Compras.informar_pago_rechazado()
+                Libremarket.Compras.informar_pago_rechazado()
             end
 
             Map.put(new_compra, "autorizacion", autorizacion)
@@ -169,8 +172,8 @@ defmodule Libremarket.Compras.Server do
             new_compra
         end
 
-      new_state = Map.put(state, id, new_compra)
-      {:reply, new_compra, new_state}
+        new_state = Map.put(state, id, new_compra)
+        {:reply, new_compra, new_state}
     end
   end
 

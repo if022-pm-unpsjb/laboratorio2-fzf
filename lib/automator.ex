@@ -5,16 +5,16 @@ defmodule Automator do
       ^id_compra ->
         # Seleccionar el producto
         case Libremarket.Compras.Server.seleccionar_producto(id_compra, id_producto) do
-          %{"infraccion" => false} ->
+          %{"infraccion" => _} ->
             # Seleccionar entrega
             case Libremarket.Compras.Server.seleccionar_entrega(id_compra) do
-              %{"entrega" => {_, costo}, "pago" => _} ->
+              %{"entrega" => {_metodo, _costo}, "pago" => _metodo_de_pago, "infraccion"=> _infraccion} ->
                 # Confirmar la compra
                 case Libremarket.Compras.Server.confirmar_compra(id_compra) do
-                  %{"confirmacion" => {:ok}} ->
+                  %{"confirmacion" => true} ->
                     {:ok, "Compra realizada con éxito"}
 
-                  %{"confirmacion" => :cancel} ->
+                  %{"confirmacion" => false} ->
                     {:error, "La compra fue cancelada"}
 
                   _ ->
@@ -24,10 +24,6 @@ defmodule Automator do
               _ ->
                 {:error, "Error al seleccionar la entrega"}
             end
-
-          %{"infraccion" => true} ->
-            Libremarket.Compras.informar_infraccion()
-            {:error, "El producto seleccionado tiene una infracción"}
 
           _ ->
             {:error, "Error al seleccionar el producto"}
