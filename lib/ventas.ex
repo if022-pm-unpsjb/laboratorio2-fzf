@@ -1,16 +1,20 @@
 defmodule Libremarket.Ventas do
   def inicializar_productos() do
     # Al menos 10 productos distintos
-    productos = for id <- 1..10, into: %{} do
-      {
-        id,
-        %{
-          nombre: "Producto #{id}",
-          stock: Enum.random(1..10),  # Stock aleatorio entre 1 y 10
-          vendedor: Enum.random([1, 2]) # Al menos 2 vendedores
+    productos =
+      for id <- 1..10, into: %{} do
+        {
+          id,
+          %{
+            nombre: "Producto #{id}",
+            # Stock aleatorio entre 1 y 10
+            stock: Enum.random(1..10),
+            # Al menos 2 vendedores
+            vendedor: Enum.random([1, 2])
+          }
         }
-      }
-    end
+      end
+
     productos
   end
 
@@ -24,8 +28,12 @@ defmodule Libremarket.Ventas do
 
       producto ->
         productos_actualizados = Map.put(productos, id, %{producto | stock: producto.stock - 1})
-        reservados_actualizados = Map.put(reservados, id_compra, %{nombre: producto.nombre, id: id})
-        {:ok, "Producto #{producto.nombre} reservado", %{productos: productos_actualizados, reservados: reservados_actualizados}}
+
+        reservados_actualizados =
+          Map.put(reservados, id_compra, %{nombre: producto.nombre, id: id})
+
+        {:ok, "Producto #{producto.nombre} reservado",
+         %{productos: productos_actualizados, reservados: reservados_actualizados}}
     end
   end
 
@@ -38,7 +46,9 @@ defmodule Libremarket.Ventas do
         producto = Map.get(productos, id)
         productos_actualizados = Map.put(productos, id, %{producto | stock: producto.stock + 1})
         reservados_actualizados = Map.delete(reservados, id_compra)
-        {:ok, "Producto #{producto_reservado.nombre} liberado", %{productos: productos_actualizados, reservados: reservados_actualizados}}
+
+        {:ok, "Producto #{producto_reservado.nombre} liberado",
+         %{productos: productos_actualizados, reservados: reservados_actualizados}}
     end
   end
 
@@ -49,7 +59,9 @@ defmodule Libremarket.Ventas do
 
       producto_reservado ->
         reservados_actualizados = Map.delete(reservados, id_compra)
-        {:ok, "Producto #{producto_reservado.nombre} enviado", %{productos: productos, reservados: reservados_actualizados}}
+
+        {:ok, "Producto #{producto_reservado.nombre} enviado",
+         %{productos: productos, reservados: reservados_actualizados}}
     end
   end
 
@@ -139,9 +151,6 @@ defmodule Libremarket.Ventas.Server do
     end
   end
 
-  @doc """
-  Callback para liberar productos reservados
-  """
   @impl true
   def handle_call({:liberar, id_compra}, _from, state) do
     case Libremarket.Ventas.liberar_producto(id_compra, state) do
@@ -153,9 +162,6 @@ defmodule Libremarket.Ventas.Server do
     end
   end
 
-  @doc """
-  Callback para enviar productos reservados
-  """
   @impl true
   def handle_call({:enviar, id_compra}, _from, state) do
     case Libremarket.Ventas.enviar_producto(id_compra, state) do
@@ -167,18 +173,12 @@ defmodule Libremarket.Ventas.Server do
     end
   end
 
-  @doc """
-  Callback para listar los productos
-  """
   @impl true
   def handle_call(:listar_productos, _from, state) do
     productos = Libremarket.Ventas.listar_productos(state)
     {:reply, productos, state}
   end
 
-  @doc """
-  Callback para listar los productos reservados
-  """
   @impl true
   def handle_call(:listar_reservados, _from, state) do
     reservados = Libremarket.Ventas.listar_reservados(state)

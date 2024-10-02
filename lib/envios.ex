@@ -1,5 +1,5 @@
 defmodule Libremarket.Envios do
-  def calcular_costo(id) do
+  def calcular_costo() do
     :rand.uniform(1000)
   end
 
@@ -51,13 +51,10 @@ defmodule Libremarket.Envios.Server do
   """
   @impl true
   def handle_call({:calcular, id}, _from, state) do
-    # por ahora solo id pero podria ser tambien como cp o algo asi
-    result = Libremarket.Envios.calcular_costo(id)
-
-    new_state1 = Map.put_new(state, id, %{})
-    new_compra = Map.put_new(new_state1[id], "costo", result)
-    new_state = Map.put(state, id, new_compra)
-
+    result = Libremarket.Envios.calcular_costo()
+    new_map = Map.put_new(state, id, %{})
+    new_envio = Map.put_new(new_map[id], "costo", result)
+    new_state = Map.put(state, id, new_envio)
     {:reply, result, new_state}
   end
 
@@ -68,9 +65,10 @@ defmodule Libremarket.Envios.Server do
 
   @impl true
   def handle_call({:agendar, id}, _from, state) do
-    new_compra = Map.put_new(state[id], "Envio", id)
-    new_state = Map.put(state, id, new_compra)
-
-    {:reply, new_compra, new_state}
+    result = Libremarket.Envios.agendar_envio()
+    new_envio = Map.put_new(state[id], "Envio", result)
+    new_state = Map.put(state, id, new_envio)
+    Libremarket.Ventas.Server.enviar_producto(id)
+    {:reply, new_envio, new_state}
   end
 end

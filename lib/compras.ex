@@ -114,7 +114,7 @@ defmodule Libremarket.Compras.Server do
 
   def handle_call({:seleccionar_producto, id, id_producto}, _from, state) do
     # TODO: Revisar metodo y llamada
-    # Libremarket.Ventas.Server.reservar_producto(id_producto)
+    Libremarket.Ventas.Server.reservar_producto(id_producto, id)
     infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
     new_compra = Map.put_new(state[id], "infraccion", infraccion)
     new_state = Map.put(state, id, new_compra)
@@ -162,13 +162,15 @@ defmodule Libremarket.Compras.Server do
                 _ -> :ok
               end
             else
-                Libremarket.Compras.informar_pago_rechazado()
+              Libremarket.Compras.informar_pago_rechazado()
+              Libremarket.Ventas.Server.liberar_producto(id)
             end
 
             Map.put(new_compra, "autorizacion", autorizacion)
 
           true ->
             Libremarket.Compras.informar_infraccion()
+            Libremarket.Ventas.Server.liberar_producto(id)
             new_compra
         end
 
