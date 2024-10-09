@@ -1,15 +1,12 @@
 defmodule Libremarket.Ventas do
   def inicializar_productos() do
-    # Al menos 10 productos distintos
     productos =
       for id <- 1..10, into: %{} do
         {
           id,
           %{
             nombre: "Producto #{id}",
-            # Stock aleatorio entre 1 y 10
             stock: Enum.random(1..10),
-            # Al menos 2 vendedores
             vendedor: Enum.random([1, 2])
           }
         }
