@@ -1,0 +1,17 @@
+habria que poner los medios de pagos como
+
+seleccionar_pago(medio)
+
+entonces ahi se lo pasamos, pero hacemos una funcion que tome valores al azar y en la parte automatizada sea como
+
+seleccionar_pago(pagos_azar())
+
+entonces ahi si es al azar
+
+deberia tirar error cuando no existe el producto
+
+hacer la persistencia 
+
+Hacer 3 proyectos nuevos para hacer los servidores
+
+un servidor infracciones, unos pagos,
