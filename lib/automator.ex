@@ -13,10 +13,27 @@ defmodule Automator do
       |> Enum.map(fn _ ->
         id_compra = :rand.uniform(1000)
         id_producto = :rand.uniform(1000)
+        metodoDeEntrega = seleccionar_entrega()
+        metodoDePago = seleccionar_pago()
 
-        #realizar_compra(id_compra, id_producto)
+        realizar_compra(id_compra, id_producto, metodoDeEntrega, metodoDePago)
       end)
 
     resultados
+  end
+
+  def seleccionar_pago() do
+    opciones_pago = [:debito, :credito, :transferencia]
+    Enum.random(opciones_pago)
+  end
+
+  def seleccionar_entrega() do
+    x = :rand.uniform(100)
+
+    if x >= 20 do
+      "correo"
+    else
+      "retiro"
+    end
   end
 end
