@@ -89,14 +89,18 @@ defmodule Libremarket.Compras.Server do
   end
 
   # Callbacks
-  # EL STATE DE COMPRAS ES LA LISTA DE COMPRAS, como diccionario xddd
 
   @doc """
   Inicializa el estado del servidor
   """
   @impl true
   def init(_state) do
-    {:ok, %{}}
+    {status,content} = File.read("compras.dets")
+    estado = case status do
+      :ok -> content
+      :error -> %{}
+    end
+    {:ok, estado}
   end
 
   @doc """
@@ -169,8 +173,8 @@ defmodule Libremarket.Compras.Server do
                 _ -> :ok
               end
             else
-              Libremarket.Compras.informar_pago_rechazado()
-              Libremarket.Ventas.Server.liberar_producto(id)
+                Libremarket.Compras.informar_pago_rechazado()
+                Libremarket.Ventas.Server.liberar_producto(id)
             end
 
             Map.put(new_compra, "autorizacion", autorizacion)
@@ -181,8 +185,8 @@ defmodule Libremarket.Compras.Server do
             new_compra
         end
 
-      new_state = Map.put(state, id, new_compra)
-      {:reply, new_compra, new_state}
+        new_state = Map.put(state, id, new_compra)
+        {:reply, new_compra, new_state}
     end
   end
 
