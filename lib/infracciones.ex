@@ -25,6 +25,7 @@ defmodule Libremarket.Infracciones.Server do
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
   end
+
   # cambiar Module por global
 
   def detectar(pid \\ __MODULE__, id) do
@@ -32,11 +33,11 @@ defmodule Libremarket.Infracciones.Server do
   end
 
   def inspeccionar(pid \\ __MODULE__, id) do
-    GenServer.call(pid, {:inspeccionar, id})
+    GenServer.call({:global, __MODULE__}, {:inspeccionar, id})
   end
 
   def listar_infracciones(pid \\ __MODULE__) do
-    GenServer.call(pid, :listar)
+    GenServer.call({:global, __MODULE__}, :listar)
   end
 
   # Callbacks

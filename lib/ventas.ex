@@ -84,42 +84,42 @@ defmodule Libremarket.Ventas.Server do
   Inicia el servidor de ventas
   """
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
   end
 
   @doc """
   Reserva un producto
   """
   def reservar_producto(pid \\ __MODULE__, id, id_compra) do
-    GenServer.call(pid, {:reservar, id, id_compra})
+    GenServer.call({:global, __MODULE__}, {:reservar, id, id_compra})
   end
 
   @doc """
   Libera un producto reservado
   """
   def liberar_producto(pid \\ __MODULE__, id_compra) do
-    GenServer.call(pid, {:liberar, id_compra})
+    GenServer.call({:global, __MODULE__}, {:liberar, id_compra})
   end
 
   @doc """
   Envía un producto reservado
   """
   def enviar_producto(pid \\ __MODULE__, id_compra) do
-    GenServer.call(pid, {:enviar, id_compra})
+    GenServer.call({:global, __MODULE__}, {:enviar, id_compra})
   end
 
   @doc """
   Lista los productos disponibles
   """
   def listar_productos(pid \\ __MODULE__) do
-    GenServer.call(pid, :listar_productos)
+    GenServer.call({:global, __MODULE__}, :listar_productos)
   end
 
   @doc """
   Lista los productos reservados
   """
   def listar_reservados(pid \\ __MODULE__) do
-    GenServer.call(pid, :listar_reservados)
+    GenServer.call({:global, __MODULE__}, :listar_reservados)
   end
 
   # Callbacks

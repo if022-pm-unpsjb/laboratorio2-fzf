@@ -1,14 +1,13 @@
 defmodule Libremarket.Pagos do
-
   def autorizar() do
     x = :rand.uniform(100)
-    if (x>=30) do
+
+    if x >= 30 do
       true
     else
-      false 
+      false
     end
   end
-
 end
 
 defmodule Libremarket.Pagos.Server do
@@ -24,21 +23,20 @@ defmodule Libremarket.Pagos.Server do
   Crea un nuevo servidor de Pagos
   """
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
   end
 
   def autorizar(pid \\ __MODULE__, id) do
-    GenServer.call(pid, {:autorizar,id})
+    GenServer.call({:global, __MODULE__}, {:autorizar, id})
   end
 
   def inspeccionar(pid \\ __MODULE__, id) do
-    GenServer.call(pid, {:inspeccionar,id})
+    GenServer.call({:global, __MODULE__}, {:inspeccionar, id})
   end
 
   def listar_pagos(pid \\ __MODULE__) do
-    GenServer.call(pid, :listar)
+    GenServer.call({:global, __MODULE__}, :listar)
   end
-
 
   # Callbacks
 
@@ -54,9 +52,9 @@ defmodule Libremarket.Pagos.Server do
   Callback para un call :autorizar
   """
   @impl true
-  def handle_call({:autorizar,id}, _from, state) do
+  def handle_call({:autorizar, id}, _from, state) do
     result = Libremarket.Pagos.autorizar()
-    {:reply, result, [{result,id}| state]}
+    {:reply, result, [{result, id} | state]}
   end
 
   @impl true
@@ -65,9 +63,8 @@ defmodule Libremarket.Pagos.Server do
   end
 
   @impl true
-  def handle_call({:inspeccionar,id}, _from, state) do
-    result= raise("ops")
-    {:reply, result, [{result,id}| state]}
+  def handle_call({:inspeccionar, id}, _from, state) do
+    result = raise("ops")
+    {:reply, result, [{result, id} | state]}
   end
-
 end

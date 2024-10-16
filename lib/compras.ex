@@ -38,6 +38,7 @@ defmodule Libremarket.Compras do
       false
     end
   end
+
   def seleccionar_pago() do
     opciones_pago = [:debito, :credito, :transferencia]
     Enum.random(opciones_pago)
@@ -56,35 +57,35 @@ defmodule Libremarket.Compras.Server do
   Crea un nuevo servidor de Compras
   """
   def start_link(opts \\ []) do
-    GenServer.start_link(__MODULE__, opts, name: __MODULE__)
+    GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
   end
 
   def comprar(pid \\ __MODULE__) do
-    GenServer.call(pid, :comprar)
+    GenServer.call({:global, __MODULE__}, :comprar)
   end
 
   def iniciar_comprar(pid \\ __MODULE__, id) do
-    GenServer.call(pid, {:iniciar_comprar, id})
+    GenServer.call({:global, __MODULE__}, {:iniciar_comprar, id})
   end
 
   def seleccionar_producto(pid \\ __MODULE__, id, id_producto) do
-    GenServer.call(pid, {:seleccionar_producto, id, id_producto})
+    GenServer.call({:global, __MODULE__}, {:seleccionar_producto, id, id_producto})
   end
 
   def seleccionar_entrega(pid \\ __MODULE__, id) do
-    GenServer.call(pid, {:seleccionar_entrega, id})
+    GenServer.call({:global, __MODULE__}, {:seleccionar_entrega, id})
   end
 
   def seleccionar_pago(pid \\ __MODULE__, id) do
-    GenServer.call(pid, {:seleccionar_pago, id})
+    GenServer.call({:global, __MODULE__}, {:seleccionar_pago, id})
   end
 
   def confirmar_compra(pid \\ __MODULE__, id) do
-    GenServer.call(pid, {:confirmar_compra, id})
+    GenServer.call({:global, __MODULE__}, {:confirmar_compra, id})
   end
 
   def listar(pid \\ __MODULE__) do
-    GenServer.call(pid, :listar)
+    GenServer.call({:global, __MODULE__}, :listar)
   end
 
   # Callbacks
@@ -149,7 +150,6 @@ defmodule Libremarket.Compras.Server do
       new_state = Map.put(state, id, new_compra)
       {:reply, new_compra, new_state}
     else
-
       new_compra =
         case state[id]["infraccion"] do
           false ->
@@ -174,8 +174,8 @@ defmodule Libremarket.Compras.Server do
             new_compra
         end
 
-        new_state = Map.put(state, id, new_compra)
-        {:reply, new_compra, new_state}
+      new_state = Map.put(state, id, new_compra)
+      {:reply, new_compra, new_state}
     end
   end
 
