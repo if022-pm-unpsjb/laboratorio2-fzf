@@ -72,12 +72,12 @@ defmodule Libremarket.Compras.Server do
     GenServer.call({:global, __MODULE__}, {:seleccionar_producto, id, id_producto})
   end
 
-  def seleccionar_entrega(pid \\ __MODULE__, id) do
-    GenServer.call({:global, __MODULE__}, {:seleccionar_entrega, id})
+  def seleccionar_entrega(pid \\ __MODULE__, id, metodo_entrega) do
+    GenServer.call({:global, __MODULE__}, {:seleccionar_entrega, id, metodo_entrega})
   end
 
-  def seleccionar_pago(pid \\ __MODULE__, id) do
-    GenServer.call({:global, __MODULE__}, {:seleccionar_pago, id})
+  def seleccionar_pago(pid \\ __MODULE__, id,metodo_pago) do
+    GenServer.call({:global, __MODULE__}, {:seleccionar_pago, id,metodo_pago})
   end
 
   def confirmar_compra(pid \\ __MODULE__, id) do
@@ -122,8 +122,9 @@ defmodule Libremarket.Compras.Server do
     {:reply, new_compra, new_state}
   end
 
-  def handle_call({:seleccionar_entrega, id}, _from, state) do
-    metodo_entrega = Libremarket.Compras.seleccionar_entrega()
+
+  def handle_call({:seleccionar_entrega, id, metodo_entrega}, _from, state) do
+    #metodo_entrega = Libremarket.Compras.seleccionar_entrega()
 
     costo =
       case metodo_entrega do
@@ -135,8 +136,14 @@ defmodule Libremarket.Compras.Server do
     new_compra =
       (state[id] || %{})
       |> Map.put_new("entrega", {metodo_entrega, costo})
-      |> Map.put("pago", Libremarket.Compras.seleccionar_pago())
 
+    new_state = Map.put(state, id, new_compra)
+    {:reply, new_compra, new_state}
+  end
+
+
+  def handle_call({:seleccionar_pago, id, metodo_pago},_from, state) do
+    new_compra = Map.put_new(state[id], "pago", metodo_pago)
     new_state = Map.put(state, id, new_compra)
     {:reply, new_compra, new_state}
   end
