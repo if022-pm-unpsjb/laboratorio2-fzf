@@ -51,6 +51,9 @@ defmodule Libremarket.Compras.Server do
   """
   use GenServer
 
+  @save_interval 60_000
+  @dets_file "./data/compras.dets"
+
   # API del cliente
 
   @doc """
@@ -95,12 +98,9 @@ defmodule Libremarket.Compras.Server do
   """
   @impl true
   def init(_state) do
-    {status,content} = File.read("compras.dets")
-    estado = case status do
-      :ok -> content
-      :error -> %{}
-    end
-    {:ok, estado}
+    state = cargar_estado_dets()
+    schedule_save()
+    {:ok, state}
   end
 
   @doc """
@@ -128,8 +128,6 @@ defmodule Libremarket.Compras.Server do
 
 
   def handle_call({:seleccionar_entrega, id, metodo_entrega}, _from, state) do
-    #metodo_entrega = Libremarket.Compras.seleccionar_entrega()
-
     costo =
       case metodo_entrega do
         "correo" -> Libremarket.Envios.Server.calcular_costo(id)
@@ -157,7 +155,6 @@ defmodule Libremarket.Compras.Server do
     new_compra = Map.put(state[id] || %{}, "confirmacion", result)
 
     if result == false do
-      # Devolver el estado con la confirmación false
       new_state = Map.put(state, id, new_compra)
       {:reply, new_compra, new_state}
     else
@@ -169,7 +166,6 @@ defmodule Libremarket.Compras.Server do
             if autorizacion do
               case elem(state[id]["entrega"], 0) do
                 "correo" -> Libremarket.Envios.Server.agendar_envio(id)
-                # No hace nada si es "retiro" u otro método
                 _ -> :ok
               end
             else
@@ -193,5 +189,45 @@ defmodule Libremarket.Compras.Server do
   @impl true
   def handle_call(:listar, _from, state) do
     {:reply, state, state}
+  end
+
+  @impl true
+  def handle_info(:guardar_estado, state) do
+    guardar_estado_dets(state)
+    schedule_save()
+    {:noreply, state}
+  end
+
+  defp schedule_save do
+    Process.send_after(self(), :guardar_estado, @save_interval)
+  end
+
+  defp guardar_estado_dets(state) do
+    case :dets.open_file(String.to_atom(@dets_file), type: :set) do
+      {:ok, dets_ref} ->
+        :dets.insert(dets_ref, {:estado, state})
+        :dets.close(dets_ref)
+
+      {:error, _} ->
+        nil
+    end
+  end
+
+  defp cargar_estado_dets do
+    case :dets.open_file(String.to_atom(@dets_file), type: :set) do
+      {:ok, dets_ref} ->
+        case :dets.lookup(dets_ref, :estado) do
+          [{:estado, saved_state}] ->
+            :dets.close(dets_ref)
+            saved_state
+
+          [] ->
+            :dets.close(dets_ref)
+            %{}
+        end
+
+      {:error, _} ->
+        %{}
+    end
   end
 end
