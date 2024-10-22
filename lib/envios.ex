@@ -9,17 +9,13 @@ defmodule Libremarket.Envios do
 end
 
 defmodule Libremarket.Envios.Server do
-  @moduledoc """
-  Envios
-  """
-
   use GenServer
+
+  @save_interval 60_000
+  @dets_file "./data/envios.dets"
 
   # API del cliente
 
-  @doc """
-  Crea un nuevo servidor de Envios
-  """
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
   end
@@ -38,17 +34,13 @@ defmodule Libremarket.Envios.Server do
 
   # Callbacks
 
-  @doc """
-  Inicializa el estado del servidor
-  """
   @impl true
-  def init(_state) do
-    {:ok, %{}}
+  def init(_opts) do
+    state = cargar_estado_dets()
+    schedule_save()
+    {:ok, state}
   end
 
-  @doc """
-  Callback para un call :detectar
-  """
   @impl true
   def handle_call({:calcular, id}, _from, state) do
     result = Libremarket.Envios.calcular_costo()
@@ -68,7 +60,47 @@ defmodule Libremarket.Envios.Server do
     result = Libremarket.Envios.agendar_envio()
     new_envio = Map.put_new(state[id], "Envio", result)
     new_state = Map.put(state, id, new_envio)
-    Libremarket.Ventas.Server.enviar_producto(id)
+    # Libremarket.Ventas.Server.enviar_producto(id)
     {:reply, new_envio, new_state}
+  end
+
+  @impl true
+  def handle_info(:guardar_estado, state) do
+    guardar_estado_dets(state)
+    schedule_save()
+    {:noreply, state}
+  end
+
+  defp schedule_save do
+    Process.send_after(self(), :guardar_estado, @save_interval)
+  end
+
+  defp guardar_estado_dets(state) do
+    case :dets.open_file(String.to_atom(@dets_file), type: :set) do
+      {:ok, dets_ref} ->
+        :dets.insert(dets_ref, {:estado, state})
+        :dets.close(dets_ref)
+
+      {:error, _} ->
+        nil
+    end
+  end
+
+  defp cargar_estado_dets do
+    case :dets.open_file(String.to_atom(@dets_file), type: :set) do
+      {:ok, dets_ref} ->
+        case :dets.lookup(dets_ref, :estado) do
+          [{:estado, saved_state}] ->
+            :dets.close(dets_ref)
+            saved_state
+
+          [] ->
+            :dets.close(dets_ref)
+            %{}
+        end
+
+      {:error, _} ->
+        %{}
+    end
   end
 end
