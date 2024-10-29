@@ -56,7 +56,7 @@ defmodule Libremarket.Infracciones.Server do
   def init(_opts) do
     state = cargar_estado_dets()
     schedule_save()
-    {:ok, connection} = Connection.open("amqpurl", ssl_options: [verify: :verify_none])
+    {:ok, connection} = Connection.open("amqps://hfbavdbu:h1LYs1gfBHGJadBA7WE4IhEVcP1vyXpr@albatross.rmq.cloudamqp.com/hfbavdbu", ssl_options: [verify: :verify_none])
     {:ok, channel} = Channel.open(connection)
     Queue.declare(channel, @queue_name, durable: true)
     Exchange.declare(channel, @exchange_name, :direct, durable: true)
