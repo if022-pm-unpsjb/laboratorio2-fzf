@@ -16,9 +16,13 @@ defmodule Libremarket.Infracciones.Server do
   """
 
   use GenServer
+  use AMQP
 
   @save_interval 60_000
   @dets_file "./data/infracciones.dets"
+  @exchange_name "exchange"
+  @queue_name "infracciones_queue"
+
 
   # API del cliente
 
@@ -52,6 +56,16 @@ defmodule Libremarket.Infracciones.Server do
   def init(_opts) do
     state = cargar_estado_dets()
     schedule_save()
+    {:ok, connection} = Connection.open("amqpurl", ssl_options: [verify: :verify_none])
+    {:ok, channel} = Channel.open(connection)
+    Queue.declare(channel, @queue_name, durable: true)
+    Exchange.declare(channel, @exchange_name, :direct, durable: true)
+
+    # Enlazar la cola con el exchange
+    Queue.bind(channel, @queue_name, exchange_name)
+
+    # Publicar el mensaje
+    Basic.consume(channel, @queue_name, nil, no_ack: true)
     {:ok, state}
   end
 
