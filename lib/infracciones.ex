@@ -33,8 +33,6 @@ defmodule Libremarket.Infracciones.Server do
     GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
   end
 
-  # cambiar Module por global
-
   def detectar(pid \\ __MODULE__, id) do
     GenServer.call({:global, __MODULE__}, {:detectar, id})
   end
@@ -62,11 +60,25 @@ defmodule Libremarket.Infracciones.Server do
     Exchange.declare(channel, @exchange_name, :direct, durable: true)
 
     # Enlazar la cola con el exchange
-    Queue.bind(channel, @queue_name, exchange_name)
+    Queue.bind(channel, @queue_name, @exchange_name)
 
     # Publicar el mensaje
     Basic.consume(channel, @queue_name, nil, no_ack: true)
+    receive_messages(channel)
+
     {:ok, state}
+  end
+
+  defp receive_messages(channel) do
+    receive do
+      {:basic_deliver, payload, _meta} ->
+        execute(payload)
+        receive_messages(channel)
+    end
+  end
+
+  def execute(pid \\ __MODULE__, args \\ []) do
+    GenServer.call({:global, __MODULE__}, args)
   end
 
   @doc """
