@@ -29,15 +29,15 @@ defmodule Libremarket.Pagos.Server do
     GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
   end
 
-  def autorizar(pid \\ __MODULE__, id) do
+  def autorizar(_pid \\ __MODULE__, id) do
     GenServer.call({:global, __MODULE__}, {:autorizar, id})
   end
 
-  def inspeccionar(pid \\ __MODULE__, id) do
+  def inspeccionar(_pid \\ __MODULE__, id) do
     GenServer.call({:global, __MODULE__}, {:inspeccionar, id})
   end
 
-  def listar_pagos(pid \\ __MODULE__) do
+  def listar_pagos(_pid \\ __MODULE__) do
     GenServer.call({:global, __MODULE__}, :listar)
   end
 

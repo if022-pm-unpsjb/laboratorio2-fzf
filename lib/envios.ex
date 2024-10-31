@@ -20,15 +20,15 @@ defmodule Libremarket.Envios.Server do
     GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
   end
 
-  def calcular_costo(pid \\ __MODULE__, id) do
+  def calcular_costo(_pid \\ __MODULE__, id) do
     GenServer.call({:global, __MODULE__}, {:calcular, id})
   end
 
-  def agendar_envio(pid \\ __MODULE__, id) do
+  def agendar_envio(_pid \\ __MODULE__, id) do
     GenServer.call({:global, __MODULE__}, {:agendar, id})
   end
 
-  def listar_envios_pendiente(pid \\ __MODULE__) do
+  def listar_envios_pendiente(_pid \\ __MODULE__) do
     GenServer.call({:global, __MODULE__}, :listar)
   end
 

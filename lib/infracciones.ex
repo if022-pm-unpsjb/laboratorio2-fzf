@@ -23,7 +23,6 @@ defmodule Libremarket.Infracciones.Server do
   @exchange_name "exchange"
   @queue_name "infracciones_queue"
 
-
   # API del cliente
 
   @doc """
@@ -33,15 +32,15 @@ defmodule Libremarket.Infracciones.Server do
     GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
   end
 
-  def detectar(pid \\ __MODULE__, id) do
+  def detectar(_pid \\ __MODULE__, id) do
     GenServer.call({:global, __MODULE__}, {:detectar, id})
   end
 
-  def inspeccionar(pid \\ __MODULE__, id) do
+  def inspeccionar(_pid \\ __MODULE__, id) do
     GenServer.call({:global, __MODULE__}, {:inspeccionar, id})
   end
 
-  def listar_infracciones(pid \\ __MODULE__) do
+  def listar_infracciones(_pid \\ __MODULE__) do
     GenServer.call({:global, __MODULE__}, :listar)
   end
 
@@ -54,31 +53,59 @@ defmodule Libremarket.Infracciones.Server do
   def init(_opts) do
     state = cargar_estado_dets()
     schedule_save()
-    {:ok, connection} = Connection.open("amqps://hfbavdbu:h1LYs1gfBHGJadBA7WE4IhEVcP1vyXpr@albatross.rmq.cloudamqp.com/hfbavdbu", ssl_options: [verify: :verify_none])
-    {:ok, channel} = Channel.open(connection)
-    Queue.declare(channel, @queue_name, durable: true)
-    Exchange.declare(channel, @exchange_name, :direct, durable: true)
 
-    # Enlazar la cola con el exchange
-    Queue.bind(channel, @queue_name, @exchange_name)
-
-    # Publicar el mensaje
-    Basic.consume(channel, @queue_name, nil, no_ack: true)
-    receive_messages(channel)
+    # Iniciar la conexión AMQP de manera asíncrona
+    Task.start(fn -> setup_amqp(state) end)
 
     {:ok, state}
   end
 
+  defp setup_amqp(_state) do
+    case Connection.open(
+           "amqps://rekattab:qWneI9EOyLomLhU4bEjixy-Mz--IBJsx@codfish.rmq.cloudamqp.com/rekattab",
+           ssl_options: [verify: :verify_none]
+         ) do
+      {:ok, connection} ->
+        {:ok, channel} = Channel.open(connection)
+        Queue.declare(channel, @queue_name, durable: true)
+        Exchange.declare(channel, @exchange_name, :direct, durable: true)
+
+        Queue.bind(channel, @queue_name, @exchange_name)
+        Basic.consume(channel, @queue_name, nil, no_ack: true)
+
+        receive_messages(channel)
+
+      {:error, reason} ->
+        IO.puts("Error al abrir conexión AMQP: #{inspect(reason)}")
+    end
+  end
+
   defp receive_messages(channel) do
     receive do
-      {:basic_deliver, payload, _meta} ->
-        execute(payload)
+      {:basic_deliver, payload, meta} ->
+        #IO.inspect(payload, label: "Received payload")
+
+        # Use Code.eval_string to parse the payload correctly
+        {parsed_payload, _binding} = Code.eval_string(payload)
+        #IO.inspect(parsed_payload, label: "Parsed payload")
+
+        # Ensure parsed_payload is valid before calling execute
+        response = execute(parsed_payload)
+
+        Basic.publish(channel, "", meta.reply_to, inspect(response),
+          correlation_id: meta.correlation_id
+        )
+        Basic.ack(channel, meta.delivery_tag)
         receive_messages(channel)
     end
   end
 
-  def execute(pid \\ __MODULE__, args \\ []) do
-    GenServer.call({:global, __MODULE__}, args)
+  def execute(args \\ []) do
+    #IO.puts("execute si funciona")
+    # Ensure that we are calling the GenServer with the args directly
+    result = GenServer.call({:global, __MODULE__}, args)
+    #IO.puts(result)
+    result
   end
 
   @doc """

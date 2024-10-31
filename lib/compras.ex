@@ -50,6 +50,7 @@ defmodule Libremarket.Compras.Server do
   Compras
   """
   use GenServer
+  use AMQP
 
   @save_interval 60_000
   @dets_file "./data/compras.dets"
@@ -63,31 +64,31 @@ defmodule Libremarket.Compras.Server do
     GenServer.start_link(__MODULE__, opts, name: {:global, __MODULE__})
   end
 
-  def comprar(pid \\ __MODULE__) do
+  def comprar(_pid \\ __MODULE__) do
     GenServer.call({:global, __MODULE__}, :comprar)
   end
 
-  def iniciar_comprar(pid \\ __MODULE__, id) do
+  def iniciar_comprar(_pid \\ __MODULE__, id) do
     GenServer.call({:global, __MODULE__}, {:iniciar_comprar, id})
   end
 
-  def seleccionar_producto(pid \\ __MODULE__, id, id_producto) do
+  def seleccionar_producto(_pid \\ __MODULE__, id, id_producto) do
     GenServer.call({:global, __MODULE__}, {:seleccionar_producto, id, id_producto})
   end
 
-  def seleccionar_entrega(pid \\ __MODULE__, id, metodo_entrega) do
+  def seleccionar_entrega(_pid \\ __MODULE__, id, metodo_entrega) do
     GenServer.call({:global, __MODULE__}, {:seleccionar_entrega, id, metodo_entrega})
   end
 
-  def seleccionar_pago(pid \\ __MODULE__, id,metodo_pago) do
-    GenServer.call({:global, __MODULE__}, {:seleccionar_pago, id,metodo_pago})
+  def seleccionar_pago(_pid \\ __MODULE__, id, metodo_pago) do
+    GenServer.call({:global, __MODULE__}, {:seleccionar_pago, id, metodo_pago})
   end
 
-  def confirmar_compra(pid \\ __MODULE__, id) do
+  def confirmar_compra(_pid \\ __MODULE__, id) do
     GenServer.call({:global, __MODULE__}, {:confirmar_compra, id})
   end
 
-  def listar(pid \\ __MODULE__) do
+  def listar(_pid \\ __MODULE__) do
     GenServer.call({:global, __MODULE__}, :listar)
   end
 
@@ -101,6 +102,52 @@ defmodule Libremarket.Compras.Server do
     state = cargar_estado_dets()
     schedule_save()
     {:ok, state}
+  end
+
+  def wait_for_messages(_channel, correlation_id) do
+    receive do
+      {:basic_deliver, payload, %{correlation_id: ^correlation_id}} ->
+        {parsed_payload, _binding} = Code.eval_string(payload)
+        parsed_payload
+    end
+  end
+
+  def call(args) do
+    {:ok, connection} =
+      Connection.open(
+        "amqps://rekattab:qWneI9EOyLomLhU4bEjixy-Mz--IBJsx@codfish.rmq.cloudamqp.com/rekattab",
+        ssl_options: [verify: :verify_none]
+      )
+
+    {:ok, channel} = Channel.open(connection)
+
+    {:ok, %{queue: queue_name}} =
+      Queue.declare(
+        channel,
+        "",
+        exclusive: true
+      )
+
+    Basic.consume(channel, queue_name, nil, no_ack: true)
+
+    correlation_id =
+      :erlang.unique_integer()
+      |> :erlang.integer_to_binary()
+      |> Base.encode64()
+
+    request = inspect(args)
+    # IO.puts(request)
+
+    AMQP.Basic.publish(
+      channel,
+      "",
+      "infracciones_queue",
+      request,
+      reply_to: queue_name,
+      correlation_id: correlation_id
+    )
+
+    wait_for_messages(channel, correlation_id)
   end
 
   @doc """
@@ -118,14 +165,13 @@ defmodule Libremarket.Compras.Server do
   end
 
   def handle_call({:seleccionar_producto, id, id_producto}, _from, state) do
-    # TODO: Revisar metodo y llamada
     Libremarket.Ventas.Server.reservar_producto(id_producto, id)
-    infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
+    # infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
+    infraccion = call({:detectar, id_producto})
     new_compra = Map.put_new(state[id], "infraccion", infraccion)
     new_state = Map.put(state, id, new_compra)
     {:reply, new_compra, new_state}
   end
-
 
   def handle_call({:seleccionar_entrega, id, metodo_entrega}, _from, state) do
     costo =
@@ -143,8 +189,7 @@ defmodule Libremarket.Compras.Server do
     {:reply, new_compra, new_state}
   end
 
-
-  def handle_call({:seleccionar_pago, id, metodo_pago},_from, state) do
+  def handle_call({:seleccionar_pago, id, metodo_pago}, _from, state) do
     new_compra = Map.put_new(state[id], "pago", metodo_pago)
     new_state = Map.put(state, id, new_compra)
     {:reply, new_compra, new_state}
@@ -169,8 +214,8 @@ defmodule Libremarket.Compras.Server do
                 _ -> :ok
               end
             else
-                Libremarket.Compras.informar_pago_rechazado()
-                Libremarket.Ventas.Server.liberar_producto(id)
+              Libremarket.Compras.informar_pago_rechazado()
+              Libremarket.Ventas.Server.liberar_producto(id)
             end
 
             Map.put(new_compra, "autorizacion", autorizacion)
@@ -181,8 +226,8 @@ defmodule Libremarket.Compras.Server do
             new_compra
         end
 
-        new_state = Map.put(state, id, new_compra)
-        {:reply, new_compra, new_state}
+      new_state = Map.put(state, id, new_compra)
+      {:reply, new_compra, new_state}
     end
   end
 
@@ -230,4 +275,11 @@ defmodule Libremarket.Compras.Server do
         %{}
     end
   end
+
+  @impl true
+  def handle_info({:basic_consume_ok, %{consumer_tag: _consumer_tag}}, state) do
+    # Acknowledge that the consumer has started successfully
+    {:noreply, state}
+  end
+
 end

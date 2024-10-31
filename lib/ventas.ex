@@ -93,35 +93,35 @@ defmodule Libremarket.Ventas.Server do
   @doc """
   Reserva un producto
   """
-  def reservar_producto(pid \\ __MODULE__, id, id_compra) do
+  def reservar_producto(_pid \\ __MODULE__, id, id_compra) do
     GenServer.call({:global, __MODULE__}, {:reservar, id, id_compra})
   end
 
   @doc """
   Libera un producto reservado
   """
-  def liberar_producto(pid \\ __MODULE__, id_compra) do
+  def liberar_producto(_pid \\ __MODULE__, id_compra) do
     GenServer.call({:global, __MODULE__}, {:liberar, id_compra})
   end
 
   @doc """
   Envía un producto reservado
   """
-  def enviar_producto(pid \\ __MODULE__, id_compra) do
+  def enviar_producto(_pid \\ __MODULE__, id_compra) do
     GenServer.call({:global, __MODULE__}, {:enviar, id_compra})
   end
 
   @doc """
   Lista los productos disponibles
   """
-  def listar_productos(pid \\ __MODULE__) do
+  def listar_productos(_pid \\ __MODULE__) do
     GenServer.call({:global, __MODULE__}, :listar_productos)
   end
 
   @doc """
   Lista los productos reservados
   """
-  def listar_reservados(pid \\ __MODULE__) do
+  def listar_reservados(_pid \\ __MODULE__) do
     GenServer.call({:global, __MODULE__}, :listar_reservados)
   end
 
@@ -134,7 +134,10 @@ defmodule Libremarket.Ventas.Server do
   def init(_opts) do
     productos = Libremarket.Ventas.inicializar_productos()
     reservados = %{}
-    state = cargar_estado_dets()
+    state = %{productos: productos, reservados: reservados}
+
+    # Optionally merge with any loaded state
+    state = Map.merge(state, cargar_estado_dets())
     schedule_save()
     {:ok, state}
   end
