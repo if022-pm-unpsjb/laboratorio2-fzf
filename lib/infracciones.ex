@@ -61,50 +61,44 @@ defmodule Libremarket.Infracciones.Server do
   end
 
   defp setup_amqp(_state) do
-    case Connection.open(
-           "amqps://rekattab:qWneI9EOyLomLhU4bEjixy-Mz--IBJsx@codfish.rmq.cloudamqp.com/rekattab",
-           ssl_options: [verify: :verify_none]
-         ) do
-      {:ok, connection} ->
-        {:ok, channel} = Channel.open(connection)
-        Queue.declare(channel, @queue_name, durable: true)
-        Exchange.declare(channel, @exchange_name, :direct, durable: true)
+    {:ok, connection} =
+      Connection.open(
+        "amqps://rekattab:qWneI9EOyLomLhU4bEjixy-Mz--IBJsx@codfish.rmq.cloudamqp.com/rekattab",
+        ssl_options: [verify: :verify_none]
+      )
 
-        Queue.bind(channel, @queue_name, @exchange_name)
-        Basic.consume(channel, @queue_name, nil, no_ack: true)
+    {:ok, channel} = Channel.open(connection)
+    Queue.declare(channel, @queue_name, durable: true)
+    Exchange.declare(channel, @exchange_name, :direct, durable: true)
 
-        receive_messages(channel)
+    Queue.bind(channel, @queue_name, @exchange_name)
+    Basic.consume(channel, @queue_name, nil, no_ack: true)
 
-      {:error, reason} ->
-        IO.puts("Error al abrir conexión AMQP: #{inspect(reason)}")
-    end
+    receive_messages(channel)
   end
 
   defp receive_messages(channel) do
     receive do
       {:basic_deliver, payload, meta} ->
-        #IO.inspect(payload, label: "Received payload")
+        # IO.inspect(payload, label: "Received payload")
 
         # Use Code.eval_string to parse the payload correctly
         {parsed_payload, _binding} = Code.eval_string(payload)
-        #IO.inspect(parsed_payload, label: "Parsed payload")
+        # IO.inspect(parsed_payload, label: "Parsed payload")
 
         # Ensure parsed_payload is valid before calling execute
         response = execute(parsed_payload)
+        Basic.publish(channel, "", meta.reply_to, inspect(response))
 
-        Basic.publish(channel, "", meta.reply_to, inspect(response),
-          correlation_id: meta.correlation_id
-        )
-        Basic.ack(channel, meta.delivery_tag)
         receive_messages(channel)
     end
   end
 
   def execute(args \\ []) do
-    #IO.puts("execute si funciona")
+    # IO.puts("execute si funciona")
     # Ensure that we are calling the GenServer with the args directly
     result = GenServer.call({:global, __MODULE__}, args)
-    #IO.puts(result)
+    # IO.puts(result)
     result
   end
 
