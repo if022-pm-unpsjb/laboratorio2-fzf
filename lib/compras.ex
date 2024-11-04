@@ -1,5 +1,4 @@
 defmodule Libremarket.Compras do
-
   def informar_infraccion() do
     {:infraccion_informada}
   end
@@ -10,6 +9,7 @@ defmodule Libremarket.Compras do
 
   def confirmar_compra() do
     x = :rand.uniform(100)
+
     if x >= 30 do
       true
     else
@@ -70,8 +70,9 @@ defmodule Libremarket.Compras.Server do
   """
   @impl true
   def init(_state) do
-    state = %{}#cargar_estado_dets()
-    #schedule_save()
+    # cargar_estado_dets()
+    state = %{}
+    # schedule_save()
 
     {:ok, connection} =
       Connection.open(
@@ -107,8 +108,6 @@ defmodule Libremarket.Compras.Server do
     {:ok, channel} = Channel.open(connection)
 
     request = inspect(args)
-    # IO.puts(request)
-
     Basic.publish(
       channel,
       "",
@@ -129,11 +128,15 @@ defmodule Libremarket.Compras.Server do
   def handle_call({:seleccionar_producto, id, id_producto}, _from, state) do
     Libremarket.Ventas.Server.reservar_producto(id_producto, id)
     # infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
-    call({:detectar, id_producto})
+    call({:detectar,id, id_producto})
     {:reply, id, state}
   end
 
-  def handle_call({:seleccionar_entrega, id, metodo_entrega}, _from, %{compras: compras, channel: channel} = _state) do
+  def handle_call(
+        {:seleccionar_entrega, id, metodo_entrega},
+        _from,
+        %{compras: compras, channel: channel} = _state
+      ) do
     costo =
       case metodo_entrega do
         :correo -> Libremarket.Envios.Server.calcular_costo(id)
@@ -145,14 +148,18 @@ defmodule Libremarket.Compras.Server do
       (compras[id] || %{})
       |> Map.put_new("entrega", {metodo_entrega, costo})
 
-    new_compras= Map.put(compras, id, new_compra)
+    new_compras = Map.put(compras, id, new_compra)
     {:reply, new_compra, %{compras: new_compras, channel: channel}}
   end
 
-  def handle_call({:seleccionar_pago, id, metodo_pago}, _from, %{compras: compras, channel: channel} = _state) do
+  def handle_call(
+        {:seleccionar_pago, id, metodo_pago},
+        _from,
+        %{compras: compras, channel: channel} = _state
+      ) do
     new_compra = Map.put_new(compras[id], "pago", metodo_pago)
     new_compras = Map.put(compras, id, new_compra)
-    {:reply, new_compra, %{compras: new_compras, channel: channel} }
+    {:reply, new_compra, %{compras: new_compras, channel: channel}}
   end
 
   def handle_call({:confirmar_compra, id}, _from, state) do
@@ -252,21 +259,43 @@ defmodule Libremarket.Compras.Server do
   @impl true
   def handle_info(
         {:basic_deliver, payload, %{delivery_tag: tag, redelivered: redelivered}},
-        %{compras: _compras, channel: channel} = state
+        %{compras: compras, channel: channel} = state
       ) do
-    consume(channel, tag, redelivered, payload)
-    {:noreply, state}
+    new_state = consume(channel, tag, redelivered, payload, state)
+    {:noreply, new_state}
   end
 
-  defp consume(channel, tag, _redelivered, payload) do
+  defp consume(channel, tag, _redelivered, payload, state) do
     try do
-      IO.puts("todo ok?")
-      # IO.puts("Error processing payload #{inspect(payload)}")
+      IO.puts("Payload recibido: #{inspect(payload)}")
+
+      data =
+        case payload do
+          _ when is_binary(payload) ->
+            {parsed, _} = Code.eval_string(payload)
+            parsed
+
+          _ ->
+            raise ArgumentError, "Formato de payload no soportado: #{inspect(payload)}"
+        end
+
+      updated_state = update_compras(data, state)
       :ok = Basic.ack(channel, tag)
+      updated_state
     rescue
       exception ->
         IO.puts("Error processing payload #{inspect(payload)}: #{inspect(exception)}")
         Basic.reject(channel, tag, requeue: false)
+        state
     end
+  end
+
+  defp update_compras({id_compra, infraccion}, state) do
+    new_compras =
+      Map.update(state.compras, id_compra, %{"infraccion" => infraccion}, fn compra ->
+        Map.put(compra, "infraccion", infraccion)
+      end)
+
+    %{state | compras: new_compras}
   end
 end

@@ -1,11 +1,11 @@
 defmodule Libremarket.Infracciones do
-  def detectar() do
+  def detectar(id_compra) do
     x = :rand.uniform(100)
 
     if x >= 30 do
-      false
+      {id_compra, false}
     else
-      true
+      {id_compra, true}
     end
   end
 end
@@ -95,7 +95,8 @@ defmodule Libremarket.Infracciones.Server do
   end
 
   def execute(args \\ []) do
-    # IO.puts("execute si funciona")
+    IO.puts("execute si funciona")
+    Process.sleep(10000)
     # Ensure that we are calling the GenServer with the args directly
     result = GenServer.call({:global, __MODULE__}, args)
     # IO.puts(result)
@@ -106,9 +107,9 @@ defmodule Libremarket.Infracciones.Server do
   Callback para un call :detectar
   """
   @impl true
-  def handle_call({:detectar, id}, _from, state) do
-    result = Libremarket.Infracciones.detectar()
-    {:reply, result, [{result, id} | state]}
+  def handle_call({:detectar, id_compra, id_producto}, _from, state) do
+    result = Libremarket.Infracciones.detectar(id_compra)
+    {:reply, result, [{result, id_producto} | state]}
   end
 
   @impl true
