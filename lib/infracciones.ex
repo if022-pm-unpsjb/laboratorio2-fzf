@@ -96,7 +96,7 @@ defmodule Libremarket.Infracciones.Server do
 
   def execute(args \\ []) do
     IO.puts("execute si funciona")
-    Process.sleep(10000)
+    Process.sleep(5000)
     # Ensure that we are calling the GenServer with the args directly
     result = GenServer.call({:global, __MODULE__}, args)
     # IO.puts(result)
