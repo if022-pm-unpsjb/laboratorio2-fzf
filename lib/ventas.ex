@@ -172,20 +172,21 @@ defmodule Libremarket.Ventas.Server do
         # IO.inspect(payload, label: "Received payload")
 
         # Use Code.eval_string to parse the payload correctly
-        {parsed_payload, _binding} = Code.eval_string(payload)
+        {{reply,parsed_payload}, _binding} = Code.eval_string(payload)
         # IO.inspect(parsed_payload, label: "Parsed payload")
 
         # Ensure parsed_payload is valid before calling execute
         response = execute(parsed_payload)
-        Basic.publish(channel, "", meta.reply_to, inspect(response))
+        case reply do
+          :reply -> Basic.publish(channel, "", meta.reply_to, inspect(response))
+          _->nil
+        end
 
         receive_messages(channel)
     end
   end
 
   def execute(args \\ []) do
-    IO.puts("execute_ventas si funciona")
-    Process.sleep(5000)
     # Ensure that we are calling the GenServer with the args directly
     result = GenServer.call({:global, __MODULE__}, args)
     # IO.puts(result)
@@ -197,6 +198,7 @@ defmodule Libremarket.Ventas.Server do
   """
   @impl true
   def handle_call({:reservar, id, id_compra}, _from, state) do
+    IO.puts("si reservo")
     case Libremarket.Ventas.reservar_producto(id, id_compra, state) do
       {:ok, mensaje, nuevo_state} ->
         {:reply, {:ok, mensaje}, nuevo_state}

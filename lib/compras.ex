@@ -129,8 +129,8 @@ defmodule Libremarket.Compras.Server do
   def handle_call({:seleccionar_producto, id, id_producto}, _from, state) do
     # Libremarket.Ventas.Server.reservar_producto(id_producto, id)
     # infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
-    call({:detectar, id, id_producto}, "infracciones_queue")
-    call({:reservar, id_producto, id}, "ventas_queue")
+    call({:reply, {:detectar, id, id_producto}}, "infracciones_queue")
+    call({:no_reply,{:reservar, id_producto, id}}, "ventas_queue")
 
     {:reply, id, state}
   end
@@ -150,7 +150,7 @@ defmodule Libremarket.Compras.Server do
     new_compra =
       (compras[id] || %{})
       |> Map.put_new("entrega", {metodo_entrega, costo})
-
+      # dejemos el {metodo_entrega} asi como lista para luego agregar el costo xdddd
     new_compras = Map.put(compras, id, new_compra)
     {:reply, new_compra, %{compras: new_compras, channel: channel}}
   end
@@ -177,7 +177,7 @@ defmodule Libremarket.Compras.Server do
         case state[id]["infraccion"] do
           false ->
             autorizacion = Libremarket.Pagos.Server.autorizar(id)
-
+            # esta logica la haria en el update compras, lo otro no hace falta moverlo
             if autorizacion do
               case elem(state[id]["entrega"], 0) do
                 "correo" -> Libremarket.Envios.Server.agendar_envio(id)
