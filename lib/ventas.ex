@@ -77,9 +77,13 @@ defmodule Libremarket.Ventas.Server do
   """
 
   use GenServer
+  use AMQP
 
   @save_interval 60_000
   @dets_file "./data/ventas.dets"
+
+  @exchange_name "exchange"
+  @queue_name "ventas_queue"
 
   # API del cliente
 
@@ -139,7 +143,53 @@ defmodule Libremarket.Ventas.Server do
     # Optionally merge with any loaded state
     state = Map.merge(state, cargar_estado_dets())
     schedule_save()
+
+    Task.start(fn -> setup_amqp(state) end)
+
     {:ok, state}
+  end
+
+  defp setup_amqp(_state) do
+    {:ok, connection} =
+      Connection.open(
+        "amqps://rekattab:qWneI9EOyLomLhU4bEjixy-Mz--IBJsx@codfish.rmq.cloudamqp.com/rekattab",
+        ssl_options: [verify: :verify_none]
+      )
+
+    {:ok, channel} = Channel.open(connection)
+    Queue.declare(channel, @queue_name, durable: true)
+    Exchange.declare(channel, @exchange_name, :direct, durable: true)
+
+    Queue.bind(channel, @queue_name, @exchange_name)
+    Basic.consume(channel, @queue_name, nil, no_ack: true)
+
+    receive_messages(channel)
+  end
+
+  defp receive_messages(channel) do
+    receive do
+      {:basic_deliver, payload, meta} ->
+        # IO.inspect(payload, label: "Received payload")
+
+        # Use Code.eval_string to parse the payload correctly
+        {parsed_payload, _binding} = Code.eval_string(payload)
+        # IO.inspect(parsed_payload, label: "Parsed payload")
+
+        # Ensure parsed_payload is valid before calling execute
+        response = execute(parsed_payload)
+        Basic.publish(channel, "", meta.reply_to, inspect(response))
+
+        receive_messages(channel)
+    end
+  end
+
+  def execute(args \\ []) do
+    IO.puts("execute_ventas si funciona")
+    Process.sleep(5000)
+    # Ensure that we are calling the GenServer with the args directly
+    result = GenServer.call({:global, __MODULE__}, args)
+    # IO.puts(result)
+    result
   end
 
   @doc """

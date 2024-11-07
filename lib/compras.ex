@@ -98,7 +98,7 @@ defmodule Libremarket.Compras.Server do
     {:ok, %{compras: state, channel: channel}}
   end
 
-  def call(args) do
+  def call(args, queue) do
     {:ok, connection} =
       Connection.open(
         "amqps://rekattab:qWneI9EOyLomLhU4bEjixy-Mz--IBJsx@codfish.rmq.cloudamqp.com/rekattab",
@@ -108,10 +108,11 @@ defmodule Libremarket.Compras.Server do
     {:ok, channel} = Channel.open(connection)
 
     request = inspect(args)
+
     Basic.publish(
       channel,
       "",
-      "infracciones_queue",
+      queue,
       request,
       reply_to: @queue_name
     )
@@ -126,9 +127,11 @@ defmodule Libremarket.Compras.Server do
   end
 
   def handle_call({:seleccionar_producto, id, id_producto}, _from, state) do
-    Libremarket.Ventas.Server.reservar_producto(id_producto, id)
+    # Libremarket.Ventas.Server.reservar_producto(id_producto, id)
     # infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
-    call({:detectar,id, id_producto})
+    call({:detectar, id, id_producto}, "infracciones_queue")
+    call({:reservar, id_producto, id}, "ventas_queue")
+
     {:reply, id, state}
   end
 
