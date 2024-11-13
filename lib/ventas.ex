@@ -172,14 +172,15 @@ defmodule Libremarket.Ventas.Server do
         # IO.inspect(payload, label: "Received payload")
 
         # Use Code.eval_string to parse the payload correctly
-        {{reply,parsed_payload}, _binding} = Code.eval_string(payload)
+        {{reply, parsed_payload}, _binding} = Code.eval_string(payload)
         # IO.inspect(parsed_payload, label: "Parsed payload")
 
         # Ensure parsed_payload is valid before calling execute
         response = execute(parsed_payload)
+
         case reply do
           :reply -> Basic.publish(channel, "", meta.reply_to, inspect(response))
-          _->nil
+          _ -> nil
         end
 
         receive_messages(channel)
@@ -199,6 +200,7 @@ defmodule Libremarket.Ventas.Server do
   @impl true
   def handle_call({:reservar, id, id_compra}, _from, state) do
     IO.puts("si reservo")
+
     case Libremarket.Ventas.reservar_producto(id, id_compra, state) do
       {:ok, mensaje, nuevo_state} ->
         {:reply, {:ok, mensaje}, nuevo_state}
@@ -221,6 +223,8 @@ defmodule Libremarket.Ventas.Server do
 
   @impl true
   def handle_call({:enviar, id_compra}, _from, state) do
+    IO.puts("si envio producto")
+
     case Libremarket.Ventas.enviar_producto(id_compra, state) do
       {:ok, mensaje, nuevo_state} ->
         {:reply, {:ok, mensaje}, nuevo_state}

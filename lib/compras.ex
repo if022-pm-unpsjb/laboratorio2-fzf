@@ -130,29 +130,22 @@ defmodule Libremarket.Compras.Server do
     # Libremarket.Ventas.Server.reservar_producto(id_producto, id)
     # infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
     call({:reply, {:detectar, id, id_producto}}, "infracciones_queue")
-    call({:no_reply,{:reservar, id_producto, id}}, "ventas_queue")
+    call({:no_reply, {:reservar, id_producto, id}}, "ventas_queue")
 
     {:reply, id, state}
   end
 
-  def handle_call(
-        {:seleccionar_entrega, id, metodo_entrega},
-        _from,
-        %{compras: compras, channel: channel} = _state
-      ) do
-    costo =
-      case metodo_entrega do
-        :correo -> Libremarket.Envios.Server.calcular_costo(id)
-        :retiro -> 0
-        _ -> 0
-      end
+  @impl true
+  def handle_call({:seleccionar_entrega, id_compra, metodo_entrega}, _from, state) do
+    # Enviar solicitud a la cola `entregas_queue`
+    call({:reply, {:calcular, id_compra}}, "envios_queue")
 
-    new_compra =
-      (compras[id] || %{})
-      |> Map.put_new("entrega", {metodo_entrega, costo})
-      # dejemos el {metodo_entrega} asi como lista para luego agregar el costo xdddd
-    new_compras = Map.put(compras, id, new_compra)
-    {:reply, new_compra, %{compras: new_compras, channel: channel}}
+    compras =
+      Map.update(state.compras, id_compra, %{"entrega" => {metodo_entrega, nil}}, fn compra ->
+        Map.put(compra, "entrega", {metodo_entrega, nil})
+      end)
+
+    {:reply, id_compra, %{state | compras: compras}}
   end
 
   def handle_call(
@@ -300,5 +293,25 @@ defmodule Libremarket.Compras.Server do
       end)
 
     %{state | compras: new_compras}
+  end
+
+  defp update_compras({id_compra, "costo", costo}, %{compras: compras} = state) do
+    compras_actualizadas =
+      Map.update(compras, id_compra, %{}, fn
+        %{"entrega" => {metodo_entrega, _}} = compra ->
+          IO.puts(metodo_entrega)
+
+          case metodo_entrega do
+            "correo" -> Map.put(compra, "entrega", {metodo_entrega, costo})
+            "retiro" -> Map.put(compra, "entrega", {metodo_entrega, 0})
+            _ -> compra
+          end
+
+        compra ->
+          compra
+      end)
+
+    # Retorna el nuevo estado con la actualización
+    %{state | compras: compras_actualizadas}
   end
 end
