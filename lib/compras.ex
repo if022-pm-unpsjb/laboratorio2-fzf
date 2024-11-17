@@ -81,18 +81,14 @@ defmodule Libremarket.Compras.Server do
       )
 
     {:ok, channel} = Channel.open(connection)
-
-    # Declarar una cola
     Queue.declare(channel, @queue_name, durable: true)
 
     Exchange.declare(channel, @exchange_name, :direct, durable: true)
 
-    # Enlazar la cola con el exchange
     Queue.bind(channel, @queue_name, @exchange_name)
 
     :ok = Basic.qos(channel, prefetch_count: 10)
 
-    # Configurar el consumidor
     Basic.consume(channel, @queue_name, nil, no_ack: false)
 
     {:ok, %{compras: state, channel: channel}}
@@ -127,9 +123,8 @@ defmodule Libremarket.Compras.Server do
   end
 
   def handle_call({:seleccionar_producto, id, id_producto}, _from, state) do
-    # Libremarket.Ventas.Server.reservar_producto(id_producto, id)
-    # infraccion = Libremarket.Infracciones.Server.detectar(id_producto)
     call({:reply, {:detectar, id, id_producto}}, "infracciones_queue")
+
     call({:no_reply, {:reservar, id_producto, id}}, "ventas_queue")
 
     {:reply, id, state}
@@ -137,7 +132,6 @@ defmodule Libremarket.Compras.Server do
 
   @impl true
   def handle_call({:seleccionar_entrega, id_compra, metodo_entrega}, _from, state) do
-    # Enviar solicitud a la cola `entregas_queue`
     call({:reply, {:calcular, id_compra}}, "envios_queue")
 
     compras =
@@ -169,22 +163,28 @@ defmodule Libremarket.Compras.Server do
       new_compra =
         case state[id]["infraccion"] do
           false ->
+            # ESTA LINEA CON UN CALL (Como esta en seleccionar producto pero seria para pagos)
             autorizacion = Libremarket.Pagos.Server.autorizar(id)
-            # esta logica la haria en el update compras, lo otro no hace falta moverlo
+            # la logica siguiente hay que ponerla en el update compras, lo otro no hace falta moverlo
+            # DESDE ACA
             if autorizacion do
               case elem(state[id]["entrega"], 0) do
+                # ESTA LLAMADA CON NO_REPLY (COMO EN SELECCIONAR PRODUCTO) ASI QUE NO NECESITA UN UPDATE_COMPRAS PARA ATAJAR LA RESPUESTA
                 "correo" -> Libremarket.Envios.Server.agendar_envio(id)
                 _ -> :ok
               end
             else
               Libremarket.Compras.informar_pago_rechazado()
+              # ESTE TAMBIEN CON NO_REPLY
               Libremarket.Ventas.Server.liberar_producto(id)
             end
 
             Map.put(new_compra, "autorizacion", autorizacion)
 
+            # HASTA ACA, deberia estar en el update compras para atajar el call de autorizar.
           true ->
             Libremarket.Compras.informar_infraccion()
+            # ESTE TAMBIEN CON NO_REPLY, NO HACE FALTA MOVERLO DE ACA
             Libremarket.Ventas.Server.liberar_producto(id)
             new_compra
         end
@@ -196,7 +196,6 @@ defmodule Libremarket.Compras.Server do
 
   @impl true
   def handle_call(:listar, _from, %{compras: compras} = state) do
-    # Devuelve solo el mapa de compras
     {:reply, compras, state}
   end
 
@@ -311,7 +310,6 @@ defmodule Libremarket.Compras.Server do
           compra
       end)
 
-    # Retorna el nuevo estado con la actualización
     %{state | compras: compras_actualizadas}
   end
 end
