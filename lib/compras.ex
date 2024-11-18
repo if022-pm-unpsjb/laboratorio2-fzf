@@ -154,38 +154,20 @@ defmodule Libremarket.Compras.Server do
 
   def handle_call({:confirmar_compra, id}, _from, state) do
     result = Libremarket.Compras.confirmar_compra()
-    new_compra = Map.put(state[id] || %{}, "confirmacion", result)
+    new_compra = Map.put(state.compras[id] || %{}, "confirmacion", result)
 
     if result == false do
       new_state = Map.put(state, id, new_compra)
       {:reply, new_compra, new_state}
     else
       new_compra =
-        case state[id]["infraccion"] do
+        case state.compras[id]["infraccion"] do
           false ->
-            # ESTA LINEA CON UN CALL (Como esta en seleccionar producto pero seria para pagos)
-            autorizacion = Libremarket.Pagos.Server.autorizar(id)
-            # la logica siguiente hay que ponerla en el update compras, lo otro no hace falta moverlo
-            # DESDE ACA
-            if autorizacion do
-              case elem(state[id]["entrega"], 0) do
-                # ESTA LLAMADA CON NO_REPLY (COMO EN SELECCIONAR PRODUCTO) ASI QUE NO NECESITA UN UPDATE_COMPRAS PARA ATAJAR LA RESPUESTA
-                "correo" -> Libremarket.Envios.Server.agendar_envio(id)
-                _ -> :ok
-              end
-            else
-              Libremarket.Compras.informar_pago_rechazado()
-              # ESTE TAMBIEN CON NO_REPLY
-              Libremarket.Ventas.Server.liberar_producto(id)
-            end
+            call({:reply, {:autorizar, id}}, "pagos_queue")
 
-            Map.put(new_compra, "autorizacion", autorizacion)
-
-            # HASTA ACA, deberia estar en el update compras para atajar el call de autorizar.
           true ->
             Libremarket.Compras.informar_infraccion()
-            # ESTE TAMBIEN CON NO_REPLY, NO HACE FALTA MOVERLO DE ACA
-            Libremarket.Ventas.Server.liberar_producto(id)
+            call({:no_reply, {:liberar, id}}, "ventas_queue")
             new_compra
         end
 
@@ -311,5 +293,27 @@ defmodule Libremarket.Compras.Server do
       end)
 
     %{state | compras: compras_actualizadas}
+  end
+
+  defp update_compras({id_compra, "autorizacion", is_authorized}, state) do
+    new_compras =
+      Map.update(state.compras, id_compra, %{"autorizacion" => is_authorized}, fn compra ->
+        if is_authorized == :autorizado do
+          case elem(state.compras[id_compra]["entrega"], 0) do
+            "correo" ->
+              call({:no_reply, {:agendar, id_compra}}, "envios_queue")
+
+            _ ->
+              :ok
+          end
+        else
+          Libremarket.Compras.informar_pago_rechazado()
+          call({:no_reply, {:liberar, id_compra}}, "ventas_queue")
+        end
+
+        Map.put(compra, "autorizacion", is_authorized)
+      end)
+
+    %{state | compras: new_compras}
   end
 end

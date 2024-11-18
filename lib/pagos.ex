@@ -110,7 +110,8 @@ defmodule Libremarket.Pagos.Server do
   @impl true
   def handle_call({:autorizar, id}, _from, state) do
     result = Libremarket.Pagos.autorizar()
-    {:reply, result, [{result, id} | state]}
+    is_authorized = if result, do: :autorizado, else: :rechazado
+    {:reply, {id, "autorizacion", is_authorized}, [{result, id} | state]}
   end
 
   @impl true
