@@ -49,6 +49,10 @@ defmodule Libremarket.Compras.Server do
     GenServer.call({:global, __MODULE__}, {:confirmar_compra, id})
   end
 
+  def confirmar_compra2(_pid \\ __MODULE__, id) do
+    GenServer.call({:global, __MODULE__}, {:confirmar_compra2, id})
+  end
+
   def listar(_pid \\ __MODULE__) do
     GenServer.call({:global, __MODULE__}, :listar)
   end
@@ -164,6 +168,30 @@ defmodule Libremarket.Compras.Server do
   end
 
   @impl true
+  def handle_call({:confirmar_compra2, id}, _from, state) do
+    new_compra = Map.put(state.compras[id] || %{}, "confirmacion", true)
+
+    updated_compra =
+      case state.compras[id]["infraccion"] do
+        false ->
+          call({:reply, {:autorizar, id}}, "pagos_queue")
+          new_compra
+
+        true ->
+          Libremarket.Compras.informar_infraccion()
+          call({:no_reply, {:liberar, id}}, "ventas_queue")
+          Map.put(new_compra, "infraccion", true)
+
+        _ ->
+          Task.start(fn -> wait_infraccion(id) end)
+      end
+
+    new_state = %{state | compras: Map.put(state.compras, id, updated_compra)}
+
+    {:reply, updated_compra, new_state}
+  end
+
+  @impl true
   def handle_call(:listar, _from, %{compras: compras} = state) do
     {:reply, compras, state}
   end
@@ -177,6 +205,12 @@ defmodule Libremarket.Compras.Server do
 
   defp schedule_save do
     Process.send_after(self(), :guardar_estado, @save_interval)
+  end
+
+  defp wait_infraccion(id) do
+    Process.sleep(2000)
+    IO.puts("en proceso infraccion")
+    GenServer.call({:global, __MODULE__}, {:confirmar_compra2, id})
   end
 
   defp guardar_estado_dets(state) do

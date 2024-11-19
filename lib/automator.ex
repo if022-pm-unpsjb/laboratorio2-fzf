@@ -1,14 +1,10 @@
 defmodule Automator do
   def realizar_compra(id_compra, id_producto, metodo_entrega, metodo_pago) do
     Libremarket.Compras.Server.iniciar_comprar(id_compra)
-    Process.sleep(5000)
     Libremarket.Compras.Server.seleccionar_producto(id_compra, id_producto)
-    Process.sleep(5000)
     Libremarket.Compras.Server.seleccionar_entrega(id_compra, metodo_entrega)
-    Process.sleep(5000)
     Libremarket.Compras.Server.seleccionar_pago(id_compra, metodo_pago)
-    Process.sleep(5000)
-    Libremarket.Compras.Server.confirmar_compra(id_compra)
+    Libremarket.Compras.Server.confirmar_compra2(id_compra)
   end
 
   def hacer_compras(cantidad_compras) do
