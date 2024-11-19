@@ -80,18 +80,20 @@ defmodule Libremarket.Infracciones.Server do
   defp receive_messages(channel) do
     receive do
       {:basic_deliver, payload, meta} ->
-        {{reply,parsed_payload}, _binding} = Code.eval_string(payload)
+        {{reply, parsed_payload}, _binding} = Code.eval_string(payload)
         response = execute(parsed_payload)
+
         case reply do
           :reply -> Basic.publish(channel, "", meta.reply_to, inspect(response))
-          _-> nil
+          _ -> nil
         end
+
         receive_messages(channel)
     end
   end
 
   def execute(args \\ []) do
-      result = GenServer.call({:global, __MODULE__}, args)
+    result = GenServer.call({:global, __MODULE__}, args)
     result
   end
 

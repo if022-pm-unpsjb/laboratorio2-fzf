@@ -6,16 +6,6 @@ defmodule Libremarket.Compras do
   def informar_pago_rechazado() do
     {:pago_rechazado_informado}
   end
-
-  def confirmar_compra() do
-    x = :rand.uniform(100)
-
-    if x >= 30 do
-      true
-    else
-      false
-    end
-  end
 end
 
 defmodule Libremarket.Compras.Server do
@@ -152,28 +142,25 @@ defmodule Libremarket.Compras.Server do
     {:reply, new_compra, %{compras: new_compras, channel: channel}}
   end
 
+  @impl true
   def handle_call({:confirmar_compra, id}, _from, state) do
-    result = Libremarket.Compras.confirmar_compra()
-    new_compra = Map.put(state.compras[id] || %{}, "confirmacion", result)
+    new_compra = Map.put(state.compras[id] || %{}, "confirmacion", true)
 
-    if result == false do
-      new_state = Map.put(state, id, new_compra)
-      {:reply, new_compra, new_state}
-    else
-      new_compra =
-        case state.compras[id]["infraccion"] do
-          false ->
-            call({:reply, {:autorizar, id}}, "pagos_queue")
+    updated_compra =
+      case state.compras[id]["infraccion"] do
+        false ->
+          call({:reply, {:autorizar, id}}, "pagos_queue")
+          new_compra
 
-          true ->
-            Libremarket.Compras.informar_infraccion()
-            call({:no_reply, {:liberar, id}}, "ventas_queue")
-            new_compra
-        end
+        true ->
+          Libremarket.Compras.informar_infraccion()
+          call({:no_reply, {:liberar, id}}, "ventas_queue")
+          Map.put(new_compra, "infraccion", true)
+      end
 
-      new_state = Map.put(state, id, new_compra)
-      {:reply, new_compra, new_state}
-    end
+    new_state = %{state | compras: Map.put(state.compras, id, updated_compra)}
+
+    {:reply, updated_compra, new_state}
   end
 
   @impl true
