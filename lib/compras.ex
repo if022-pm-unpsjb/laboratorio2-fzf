@@ -71,8 +71,8 @@ defmodule Libremarket.Compras.Server do
   @impl true
   def init(_state) do
     # cargar_estado_dets()
-    state = %{}
-    # schedule_save()
+    state = cargar_estado_dets()
+    schedule_save()
 
     {:ok, connection} =
       Connection.open(
@@ -164,6 +164,7 @@ defmodule Libremarket.Compras.Server do
         case state.compras[id]["infraccion"] do
           false ->
             call({:reply, {:autorizar, id}}, "pagos_queue")
+
           true ->
             Libremarket.Compras.informar_infraccion()
             call({:no_reply, {:liberar, id}}, "ventas_queue")
@@ -181,8 +182,8 @@ defmodule Libremarket.Compras.Server do
   end
 
   @impl true
-  def handle_info(:guardar_estado, state) do
-    guardar_estado_dets(state)
+  def handle_info(:guardar_estado, %{compras: compras} = state) do
+    guardar_estado_dets(compras)
     schedule_save()
     {:noreply, state}
   end
