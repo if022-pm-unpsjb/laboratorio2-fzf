@@ -164,7 +164,6 @@ defmodule Libremarket.Compras.Server do
         case state.compras[id]["infraccion"] do
           false ->
             call({:reply, {:autorizar, id}}, "pagos_queue")
-
           true ->
             Libremarket.Compras.informar_infraccion()
             call({:no_reply, {:liberar, id}}, "ventas_queue")

@@ -80,26 +80,18 @@ defmodule Libremarket.Infracciones.Server do
   defp receive_messages(channel) do
     receive do
       {:basic_deliver, payload, meta} ->
-        # IO.inspect(payload, label: "Received payload")
-
-        # Use Code.eval_string to parse the payload correctly
         {{reply,parsed_payload}, _binding} = Code.eval_string(payload)
-        # IO.inspect(parsed_payload, label: "Parsed payload")
-
-        # Ensure parsed_payload is valid before calling execute
         response = execute(parsed_payload)
         case reply do
           :reply -> Basic.publish(channel, "", meta.reply_to, inspect(response))
           _-> nil
         end
-
         receive_messages(channel)
     end
   end
 
   def execute(args \\ []) do
       result = GenServer.call({:global, __MODULE__}, args)
-    # IO.puts(result)
     result
   end
 
