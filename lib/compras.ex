@@ -88,14 +88,7 @@ defmodule Libremarket.Compras.Server do
     {:ok, %{compras: state, channel: channel}}
   end
 
-  def call(args, queue) do
-    {:ok, connection} =
-      Connection.open(
-        "amqps://rekattab:qWneI9EOyLomLhU4bEjixy-Mz--IBJsx@codfish.rmq.cloudamqp.com/rekattab",
-        ssl_options: [verify: :verify_none]
-      )
-
-    {:ok, channel} = Channel.open(connection)
+  def call(args, queue, channel) do
 
     request = inspect(args)
 
@@ -117,16 +110,16 @@ defmodule Libremarket.Compras.Server do
   end
 
   def handle_call({:seleccionar_producto, id, id_producto}, _from, state) do
-    call({:reply, {:detectar, id, id_producto}}, "infracciones_queue")
+    call({:reply, {:detectar, id, id_producto}}, "infracciones_queue", state.channel)
 
-    call({:no_reply, {:reservar, id_producto, id}}, "ventas_queue")
+    call({:no_reply, {:reservar, id_producto, id}}, "ventas_queue", state.channel)
 
     {:reply, id, state}
   end
 
   @impl true
   def handle_call({:seleccionar_entrega, id_compra, metodo_entrega}, _from, state) do
-    call({:reply, {:calcular, id_compra}}, "envios_queue")
+    call({:reply, {:calcular, id_compra}}, "envios_queue", state.channel)
 
     compras =
       Map.update(state.compras, id_compra, %{"entrega" => {metodo_entrega, nil}}, fn compra ->
@@ -153,12 +146,12 @@ defmodule Libremarket.Compras.Server do
     updated_compra =
       case state.compras[id]["infraccion"] do
         false ->
-          call({:reply, {:autorizar, id}}, "pagos_queue")
+          call({:reply, {:autorizar, id}}, "pagos_queue", state.channel)
           new_compra
 
         true ->
           Libremarket.Compras.informar_infraccion()
-          call({:no_reply, {:liberar, id}}, "ventas_queue")
+          call({:no_reply, {:liberar, id}}, "ventas_queue", state.channel)
           Map.put(new_compra, "infraccion", true)
       end
 
@@ -169,26 +162,34 @@ defmodule Libremarket.Compras.Server do
 
   @impl true
   def handle_call({:confirmar_compra2, id}, _from, state) do
-    new_compra = Map.put(state.compras[id] || %{}, "confirmacion", true)
+    compra = Map.get(state.compras, id, %{}) # Accede de manera segura
+    compra = Map.put(compra, "confirmacion", true)
 
     updated_compra =
-      case state.compras[id]["infraccion"] do
+      case Map.get(compra, "infraccion") do
         false ->
-          call({:reply, {:autorizar, id}}, "pagos_queue")
-          new_compra
+          call({:reply, {:autorizar, id}}, "pagos_queue", state.channel)
+          compra
 
         true ->
           Libremarket.Compras.informar_infraccion()
-          call({:no_reply, {:liberar, id}}, "ventas_queue")
-          Map.put(new_compra, "infraccion", true)
+          call({:no_reply, {:liberar, id}}, "ventas_queue", state.channel)
+          Map.put(compra, "infraccion", true)
 
-        _ ->
+        nil ->
           Task.start(fn -> wait_infraccion(id) end)
+          compra
       end
 
     new_state = %{state | compras: Map.put(state.compras, id, updated_compra)}
-
     {:reply, updated_compra, new_state}
+  end
+
+  defp wait_infraccion(id) do
+    Process.sleep(2000)
+    IO.puts("Esperando resolución de infracción para compra: #{id}")
+
+    GenServer.call({:global, __MODULE__}, {:confirmar_compra2, id}, 5000)
   end
 
   @impl true
@@ -207,11 +208,6 @@ defmodule Libremarket.Compras.Server do
     Process.send_after(self(), :guardar_estado, @save_interval)
   end
 
-  defp wait_infraccion(id) do
-    Process.sleep(2000)
-    IO.puts("en proceso infraccion")
-    GenServer.call({:global, __MODULE__}, {:confirmar_compra2, id})
-  end
 
   defp guardar_estado_dets(state) do
     case :dets.open_file(String.to_atom(@dets_file), type: :set) do
@@ -265,7 +261,6 @@ defmodule Libremarket.Compras.Server do
 
   defp consume(channel, tag, _redelivered, payload, state) do
     try do
-      IO.puts("Payload recibido: #{inspect(payload)}")
 
       data =
         case payload do
@@ -301,7 +296,6 @@ defmodule Libremarket.Compras.Server do
     compras_actualizadas =
       Map.update(compras, id_compra, %{}, fn
         %{"entrega" => {metodo_entrega, _}} = compra ->
-          IO.puts(metodo_entrega)
 
           case metodo_entrega do
             "correo" -> Map.put(compra, "entrega", {metodo_entrega, costo})
@@ -322,14 +316,14 @@ defmodule Libremarket.Compras.Server do
         if is_authorized == :autorizado do
           case elem(state.compras[id_compra]["entrega"], 0) do
             "correo" ->
-              call({:no_reply, {:agendar, id_compra}}, "envios_queue")
+              call({:no_reply, {:agendar, id_compra}}, "envios_queue", state.channel)
 
             _ ->
               :ok
           end
         else
           Libremarket.Compras.informar_pago_rechazado()
-          call({:no_reply, {:liberar, id_compra}}, "ventas_queue")
+          call({:no_reply, {:liberar, id_compra}}, "ventas_queue", state.channel)
         end
 
         Map.put(compra, "autorizacion", is_authorized)

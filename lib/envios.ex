@@ -111,7 +111,6 @@ defmodule Libremarket.Envios.Server do
 
   @impl true
   def handle_call({:calcular, id}, _from, state) do
-    IO.puts("si calculo")
     result = Libremarket.Envios.calcular_costo()
     new_map = Map.put_new(state, id, %{})
     new_envio = Map.put_new(new_map[id], "costo", result)

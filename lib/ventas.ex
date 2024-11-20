@@ -199,7 +199,6 @@ defmodule Libremarket.Ventas.Server do
   """
   @impl true
   def handle_call({:reservar, id, id_compra}, _from, state) do
-    IO.puts("si reservo")
 
     case Libremarket.Ventas.reservar_producto(id, id_compra, state) do
       {:ok, mensaje, nuevo_state} ->
@@ -223,8 +222,6 @@ defmodule Libremarket.Ventas.Server do
 
   @impl true
   def handle_call({:enviar, id_compra}, _from, state) do
-    IO.puts("si envio producto")
-
     case Libremarket.Ventas.enviar_producto(id_compra, state) do
       {:ok, mensaje, nuevo_state} ->
         {:reply, {:ok, mensaje}, nuevo_state}
