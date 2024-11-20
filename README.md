@@ -16,11 +16,11 @@ El flujo de compra se realiza ejecutando una serie de comandos en la consola. Aq
    ```bash
    Libremarket.Compras.Server.seleccionar_producto(id_compra, id_producto)
 
-3. **Seleccionar Método de Entrega**  
+3. **Seleccionar Método de Entrega** (Elegir entre "correo" y "retiro")
    ```bash
    Libremarket.Compras.Server.seleccionar_entraga(id_compra, "Método de entrega")
 
-4. **Seleccionar Método de Pago**  
+4. **Seleccionar Método de Pago**  (El argumento es indistinto, podria usar :credito o :debito)
    ```bash
    Libremarket.Compras.Server.seleccionar_pago(id_compra, "Método de pago")
 
