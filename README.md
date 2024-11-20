@@ -47,3 +47,13 @@ Para ejecutar varias compras a la vez, usar este comando indicando la cantidad d
 - **Realizar una Compra**  
    ```bash
    Automator.hacer_compras(cantidad_compras)
+
+---
+
+## Listar Compras
+
+Para visualizar las compras realizadas, ejecutar el siguiente comando:
+
+- **Listar Compras**  
+   ```bash
+   Libremarket.Compras.Server.listar
