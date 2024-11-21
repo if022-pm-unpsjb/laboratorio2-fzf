@@ -175,7 +175,7 @@ defmodule Libremarket.Compras.Server do
           Libremarket.Compras.informar_infraccion()
           call({:no_reply, {:liberar, id}}, "ventas_queue", state.channel)
           Map.put(compra, "infraccion", true)
-
+          # ACA MENSAJE EN ESTADO QUE ERROR: HAY INFRACCION
         nil ->
           Task.start(fn -> wait_infraccion(id) end)
           compra
@@ -328,6 +328,7 @@ defmodule Libremarket.Compras.Server do
     new_compras =
       Map.update(state.compras, id_compra, %{"autorizacion" => is_authorized}, fn compra ->
         if is_authorized == :autorizado do
+          # ACA DEBERIA ACTUALIZAR EL ESTADO CON COMPRA EXITOSA:
           case elem(state.compras[id_compra]["entrega"], 0) do
             "correo" ->
               call({:no_reply, {:agendar, id_compra}}, "envios_queue", state.channel)
@@ -336,6 +337,7 @@ defmodule Libremarket.Compras.Server do
               :ok
           end
         else
+          # ACA DEBERIA ACTUALIZAR EL ESTADO DE LA COMPRA A ERROR PAGO NO AUTORIZADO
           Libremarket.Compras.informar_pago_rechazado()
           call({:no_reply, {:liberar, id_compra}}, "ventas_queue", state.channel)
         end
