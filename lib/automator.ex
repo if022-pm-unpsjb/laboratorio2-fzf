@@ -22,6 +22,23 @@ defmodule Automator do
     resultados
   end
 
+  def hacer_compras_async(cantidad_compras) do
+      for _ <- 1..cantidad_compras do
+        spawn (fn ->
+        id_compra = :rand.uniform(1000)
+        id_producto = :rand.uniform(1000)
+        metodoDeEntrega = seleccionar_entrega()
+        metodoDePago = seleccionar_pago()
+
+        realizar_compra(id_compra, id_producto, metodoDeEntrega, metodoDePago)
+
+      end)
+
+    end
+
+
+  end
+
   def seleccionar_pago() do
     opciones_pago = [:debito, :credito, :transferencia]
     Enum.random(opciones_pago)

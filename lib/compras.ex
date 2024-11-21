@@ -110,9 +110,9 @@ defmodule Libremarket.Compras.Server do
   end
 
   def handle_call({:seleccionar_producto, id, id_producto}, _from, state) do
-    call({:reply, {:detectar, id, id_producto}}, "infracciones_queue", state.channel)
+    call({:reply, {:reservar, id_producto, id}}, "ventas_queue", state.channel)
 
-    call({:no_reply, {:reservar, id_producto, id}}, "ventas_queue", state.channel)
+    call({:reply, {:detectar, id, id_producto}}, "infracciones_queue", state.channel)
 
     {:reply, id, state}
   end
@@ -189,7 +189,7 @@ defmodule Libremarket.Compras.Server do
     Process.sleep(2000)
     IO.puts("Esperando resolución de infracción para compra: #{id}")
 
-    GenServer.call({:global, __MODULE__}, {:confirmar_compra2, id}, 5000)
+    GenServer.call({:global, __MODULE__}, {:confirmar_compra2, id})
   end
 
   @impl true
@@ -290,6 +290,20 @@ defmodule Libremarket.Compras.Server do
       end)
 
     %{state | compras: new_compras}
+  end
+
+  defp update_compras({estado,id_compra,:reserva, mensaje}, state) do
+    case estado do
+      :error ->
+      new_compras =
+      Map.update(state.compras, id_compra, %{"estado" => mensaje}, fn compra ->
+        Map.put(compra, "estado", mensaje)
+      end)
+
+    %{state | compras: new_compras}
+      :ok -> state.compras
+    end
+
   end
 
   defp update_compras({id_compra, "costo", costo}, %{compras: compras} = state) do

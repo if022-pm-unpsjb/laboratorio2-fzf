@@ -21,7 +21,7 @@ defmodule Libremarket.Ventas do
         {:error, "Producto no encontrado"}
 
       %{stock: 0} = producto ->
-        {:error, "Sin stock para #{producto.nombre}"}
+        {:error, "Error: Sin stock para #{producto.nombre}"}
 
       producto ->
         productos_actualizados = Map.put(productos, id, %{producto | stock: producto.stock - 1})
@@ -202,10 +202,10 @@ defmodule Libremarket.Ventas.Server do
 
     case Libremarket.Ventas.reservar_producto(id, id_compra, state) do
       {:ok, mensaje, nuevo_state} ->
-        {:reply, {:ok, mensaje}, nuevo_state}
+        {:reply, {:ok,id_compra,:reserva, mensaje}, nuevo_state}
 
       {:error, mensaje} ->
-        {:reply, {:error, mensaje}, state}
+        {:reply, {:error,id_compra,:reserva, mensaje}, state}
     end
   end
 
