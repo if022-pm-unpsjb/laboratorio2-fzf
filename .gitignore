@@ -26,3 +26,5 @@ libremarket-*.tar
 /tmp/
 
 compras.dets
+
+/data/*.dets

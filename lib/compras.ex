@@ -75,7 +75,7 @@ defmodule Libremarket.Compras.Server do
       )
 
     {:ok, channel} = Channel.open(connection)
-    Queue.declare(channel, @queue_name, durable: true)
+    Queue.declare(channel, @queue_name, auto_delete: true)
 
     Exchange.declare(channel, @exchange_name, :direct, durable: true)
 
@@ -283,7 +283,7 @@ defmodule Libremarket.Compras.Server do
     end
   end
 
-  defp update_compras({id_compra, infraccion}, state) do
+  defp update_compras({:infraccion,id_compra, infraccion}, state) do
     new_compras =
       Map.update(state.compras, id_compra, %{"infraccion" => infraccion}, fn compra ->
         Map.put(compra, "infraccion", infraccion)
@@ -292,19 +292,22 @@ defmodule Libremarket.Compras.Server do
     %{state | compras: new_compras}
   end
 
-  defp update_compras({estado,id_compra,:reserva, mensaje}, state) do
+  defp update_compras({estado, id_compra, :reserva, mensaje}, state) do
     case estado do
       :error ->
-      new_compras =
-      Map.update(state.compras, id_compra, %{"estado" => mensaje}, fn compra ->
-        Map.put(compra, "estado", mensaje)
-      end)
+        new_compras =
+          Map.update(state.compras, id_compra, %{"estado" => mensaje}, fn compra ->
+            Map.put(compra, "estado", mensaje)
+          end)
 
-    %{state | compras: new_compras}
-      :ok -> state.compras
+        %{state | compras: new_compras}
+
+      :ok ->
+        # Si es :ok, devolvemos el estado sin cambios
+        state
     end
-
   end
+
 
   defp update_compras({id_compra, "costo", costo}, %{compras: compras} = state) do
     compras_actualizadas =
@@ -327,24 +330,27 @@ defmodule Libremarket.Compras.Server do
   defp update_compras({id_compra, "autorizacion", is_authorized}, state) do
     new_compras =
       Map.update(state.compras, id_compra, %{"autorizacion" => is_authorized}, fn compra ->
-        if is_authorized == :autorizado do
-          # ACA DEBERIA ACTUALIZAR EL ESTADO CON COMPRA EXITOSA:
-          case elem(state.compras[id_compra]["entrega"], 0) do
-            "correo" ->
-              call({:no_reply, {:agendar, id_compra}}, "envios_queue", state.channel)
+        updated_compra =
+          if is_authorized == :autorizado do
+            case elem(state.compras[id_compra]["entrega"], 0) do
+              "correo" ->
+                call({:no_reply, {:agendar, id_compra}}, "envios_queue", state.channel)
+                Map.put(compra, "estado", "compra exitosa")
 
-            _ ->
-              :ok
+              _ ->
+                Map.put(compra, "estado", "compra exitosa sin envio")
+            end
+          else
+            Libremarket.Compras.informar_pago_rechazado()
+            call({:no_reply, {:liberar, id_compra}}, "ventas_queue", state.channel)
+            Map.put(compra, "estado", "pago no autorizado")
           end
-        else
-          # ACA DEBERIA ACTUALIZAR EL ESTADO DE LA COMPRA A ERROR PAGO NO AUTORIZADO
-          Libremarket.Compras.informar_pago_rechazado()
-          call({:no_reply, {:liberar, id_compra}}, "ventas_queue", state.channel)
-        end
 
-        Map.put(compra, "autorizacion", is_authorized)
+        # Asegúrate de actualizar el campo de autorización también
+        Map.put(updated_compra, "autorizacion", is_authorized)
       end)
 
     %{state | compras: new_compras}
   end
+
 end

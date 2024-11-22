@@ -3,9 +3,9 @@ defmodule Libremarket.Infracciones do
     x = :rand.uniform(100)
 
     if x >= 30 do
-      {id_compra, false}
+      {:infraccion, id_compra, false}
     else
-      {id_compra, true}
+      {:infraccion, id_compra, true}
     end
   end
 end

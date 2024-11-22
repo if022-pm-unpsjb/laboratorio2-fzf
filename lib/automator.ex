@@ -12,7 +12,7 @@ defmodule Automator do
       1..cantidad_compras
       |> Enum.map(fn _ ->
         id_compra = :rand.uniform(1000)
-        id_producto = :rand.uniform(1000)
+        id_producto = :rand.uniform(11)
         metodoDeEntrega = seleccionar_entrega()
         metodoDePago = seleccionar_pago()
 
@@ -26,7 +26,7 @@ defmodule Automator do
       for _ <- 1..cantidad_compras do
         spawn (fn ->
         id_compra = :rand.uniform(1000)
-        id_producto = :rand.uniform(1000)
+        id_producto = :rand.uniform(11)
         metodoDeEntrega = seleccionar_entrega()
         metodoDePago = seleccionar_pago()
 
