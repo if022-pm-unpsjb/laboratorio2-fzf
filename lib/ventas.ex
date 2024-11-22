@@ -205,6 +205,7 @@ defmodule Libremarket.Ventas.Server do
         {:reply, {:ok,id_compra,:reserva, mensaje}, nuevo_state}
 
       {:error, mensaje} ->
+        IO.puts("error en producto")
         {:reply, {:error,id_compra,:reserva, mensaje}, state}
     end
   end

@@ -159,31 +159,38 @@ defmodule Libremarket.Compras.Server do
 
     {:reply, updated_compra, new_state}
   end
-
   @impl true
   def handle_call({:confirmar_compra2, id}, _from, state) do
-    compra = Map.get(state.compras, id, %{}) # Accede de manera segura
-    compra = Map.put(compra, "confirmacion", true)
+    compra = Map.get(state.compras, id, %{})
 
-    updated_compra =
-      case Map.get(compra, "infraccion") do
-        false ->
-          call({:reply, {:autorizar, id}}, "pagos_queue", state.channel)
-          compra
+    # Si la compra ya tiene un estado, no dejar confirmar
+    if Map.has_key?(compra, "estado") do
+      {:reply, {:error, "Compra ya tiene un estado asignado, no se puede confirmar"}, state}
+    else
+      compra = Map.put(compra, "confirmado", true)
 
-        true ->
-          Libremarket.Compras.informar_infraccion()
-          call({:no_reply, {:liberar, id}}, "ventas_queue", state.channel)
-          Map.put(compra, "infraccion", true)
-          # ACA MENSAJE EN ESTADO QUE ERROR: HAY INFRACCION
-        nil ->
-          Task.start(fn -> wait_infraccion(id) end)
-          compra
-      end
+      updated_compra =
+        case Map.get(compra, "infraccion") do
+          false ->
+            call({:reply, {:autorizar, id}}, "pagos_queue", state.channel)
+            compra
 
-    new_state = %{state | compras: Map.put(state.compras, id, updated_compra)}
-    {:reply, updated_compra, new_state}
+          true ->
+            Libremarket.Compras.informar_infraccion()
+            call({:no_reply, {:liberar, id}}, "ventas_queue", state.channel)
+            Map.put(compra, "infraccion", true)
+            |> Map.put("estado", "error: hay infracción")
+
+          nil ->
+            Task.start(fn -> wait_infraccion(id) end)
+            compra
+        end
+
+      new_state = %{state | compras: Map.put(state.compras, id, updated_compra)}
+      {:reply, updated_compra, new_state}
+    end
   end
+
 
   defp wait_infraccion(id) do
     Process.sleep(2000)
@@ -303,7 +310,6 @@ defmodule Libremarket.Compras.Server do
         %{state | compras: new_compras}
 
       :ok ->
-        # Si es :ok, devolvemos el estado sin cambios
         state
     end
   end
@@ -338,7 +344,7 @@ defmodule Libremarket.Compras.Server do
                 Map.put(compra, "estado", "compra exitosa")
 
               _ ->
-                Map.put(compra, "estado", "compra exitosa sin envio")
+                Map.put(compra, "estado", "compra exitosa")
             end
           else
             Libremarket.Compras.informar_pago_rechazado()
