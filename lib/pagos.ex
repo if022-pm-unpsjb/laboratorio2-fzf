@@ -80,13 +80,9 @@ defmodule Libremarket.Pagos.Server do
   defp receive_messages(channel) do
     receive do
       {:basic_deliver, payload, meta} ->
-        # IO.inspect(payload, label: "Received payload")
 
-        # Use Code.eval_string to parse the payload correctly
         {{reply, parsed_payload}, _binding} = Code.eval_string(payload)
-        # IO.inspect(parsed_payload, label: "Parsed payload")
 
-        # Ensure parsed_payload is valid before calling execute
         response = execute(parsed_payload)
 
         case reply do

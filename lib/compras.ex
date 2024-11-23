@@ -179,7 +179,7 @@ defmodule Libremarket.Compras.Server do
             Libremarket.Compras.informar_infraccion()
             call({:no_reply, {:liberar, id}}, "ventas_queue", state.channel)
             Map.put(compra, "infraccion", true)
-            |> Map.put("estado", "error: hay infracción")
+            |> Map.put("estado", "Error: Infracción detectada")
 
           nil ->
             Task.start(fn -> wait_infraccion(id) end)
@@ -260,7 +260,7 @@ defmodule Libremarket.Compras.Server do
   @impl true
   def handle_info(
         {:basic_deliver, payload, %{delivery_tag: tag, redelivered: redelivered}},
-        %{compras: compras, channel: channel} = state
+        %{compras: _compras, channel: channel} = state
       ) do
     new_state = consume(channel, tag, redelivered, payload, state)
     {:noreply, new_state}
@@ -341,15 +341,15 @@ defmodule Libremarket.Compras.Server do
             case elem(state.compras[id_compra]["entrega"], 0) do
               "correo" ->
                 call({:no_reply, {:agendar, id_compra}}, "envios_queue", state.channel)
-                Map.put(compra, "estado", "compra exitosa")
+                Map.put(compra, "estado", "Compra exitosa")
 
               _ ->
-                Map.put(compra, "estado", "compra exitosa")
+                Map.put(compra, "estado", "Compra exitosa")
             end
           else
             Libremarket.Compras.informar_pago_rechazado()
             call({:no_reply, {:liberar, id_compra}}, "ventas_queue", state.channel)
-            Map.put(compra, "estado", "pago no autorizado")
+            Map.put(compra, "estado", "Error: Pago no autorizado")
           end
 
         # Asegúrate de actualizar el campo de autorización también
