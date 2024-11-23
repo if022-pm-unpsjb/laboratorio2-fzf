@@ -25,6 +25,7 @@ defmodule Libremarket.Ventas do
 
       producto ->
         productos_actualizados = Map.put(productos, id, %{producto | stock: producto.stock - 1})
+        IO.puts("reserva")
 
         reservados_actualizados =
           Map.put(reservados, id_compra, %{nombre: producto.nombre, id: id})
@@ -140,7 +141,6 @@ defmodule Libremarket.Ventas.Server do
     reservados = %{}
     state = %{productos: productos, reservados: reservados}
 
-    # Optionally merge with any loaded state
     state = Map.merge(state, cargar_estado_dets())
     schedule_save()
 
@@ -199,13 +199,12 @@ defmodule Libremarket.Ventas.Server do
   """
   @impl true
   def handle_call({:reservar, id, id_compra}, _from, state) do
-
     case Libremarket.Ventas.reservar_producto(id, id_compra, state) do
       {:ok, mensaje, nuevo_state} ->
-        {:reply, {:ok,id_compra,:reserva, mensaje}, nuevo_state}
+        {:reply, {:ok, id_compra, :reserva, mensaje}, nuevo_state}
 
       {:error, mensaje} ->
-        {:reply, {:error,id_compra,:reserva, mensaje}, state}
+        {:reply, {:error, id_compra, :reserva, mensaje}, state}
     end
   end
 
@@ -213,6 +212,7 @@ defmodule Libremarket.Ventas.Server do
   def handle_call({:liberar, id_compra}, _from, state) do
     case Libremarket.Ventas.liberar_producto(id_compra, state) do
       {:ok, mensaje, nuevo_state} ->
+        IO.puts("libera")
         {:reply, {:ok, mensaje}, nuevo_state}
 
       {:error, mensaje} ->
