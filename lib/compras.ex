@@ -75,7 +75,7 @@ defmodule Libremarket.Compras.Server do
       )
 
     {:ok, channel} = Channel.open(connection)
-    Queue.declare(channel, @queue_name, auto_delete: true)
+    Queue.declare(channel, @queue_name, durable: true)
 
     Exchange.declare(channel, @exchange_name, :direct, durable: true)
 
@@ -89,7 +89,6 @@ defmodule Libremarket.Compras.Server do
   end
 
   def call(args, queue, channel) do
-
     request = inspect(args)
 
     Basic.publish(
@@ -114,7 +113,12 @@ defmodule Libremarket.Compras.Server do
 
     call({:reply, {:detectar, id, id_producto}}, "infracciones_queue", state.channel)
 
-    {:reply, id, state}
+    new_compras =
+      Map.update(state.compras, id, %{"producto" => id_producto}, fn compra ->
+        Map.put(compra, "producto", id_producto)
+      end)
+
+    {:reply, id, %{state | compras: new_compras}}
   end
 
   @impl true
@@ -159,6 +163,7 @@ defmodule Libremarket.Compras.Server do
 
     {:reply, updated_compra, new_state}
   end
+
   @impl true
   def handle_call({:confirmar_compra2, id}, _from, state) do
     compra = Map.get(state.compras, id, %{})
@@ -178,6 +183,7 @@ defmodule Libremarket.Compras.Server do
           true ->
             Libremarket.Compras.informar_infraccion()
             call({:no_reply, {:liberar, id}}, "ventas_queue", state.channel)
+
             Map.put(compra, "infraccion", true)
             |> Map.put("estado", "Error: Infracción detectada")
 
@@ -190,7 +196,6 @@ defmodule Libremarket.Compras.Server do
       {:reply, updated_compra, new_state}
     end
   end
-
 
   defp wait_infraccion(id) do
     Process.sleep(2000)
@@ -214,7 +219,6 @@ defmodule Libremarket.Compras.Server do
   defp schedule_save do
     Process.send_after(self(), :guardar_estado, @save_interval)
   end
-
 
   defp guardar_estado_dets(state) do
     case :dets.open_file(String.to_atom(@dets_file), type: :set) do
@@ -268,7 +272,6 @@ defmodule Libremarket.Compras.Server do
 
   defp consume(channel, tag, _redelivered, payload, state) do
     try do
-
       data =
         case payload do
           _ when is_binary(payload) ->
@@ -290,7 +293,7 @@ defmodule Libremarket.Compras.Server do
     end
   end
 
-  defp update_compras({:infraccion,id_compra, infraccion}, state) do
+  defp update_compras({:infraccion, id_compra, infraccion}, state) do
     new_compras =
       Map.update(state.compras, id_compra, %{"infraccion" => infraccion}, fn compra ->
         Map.put(compra, "infraccion", infraccion)
@@ -314,12 +317,10 @@ defmodule Libremarket.Compras.Server do
     end
   end
 
-
   defp update_compras({id_compra, "costo", costo}, %{compras: compras} = state) do
     compras_actualizadas =
       Map.update(compras, id_compra, %{}, fn
         %{"entrega" => {metodo_entrega, _}} = compra ->
-
           case metodo_entrega do
             "correo" -> Map.put(compra, "entrega", {metodo_entrega, costo})
             "retiro" -> Map.put(compra, "entrega", {metodo_entrega, 0})
@@ -358,5 +359,4 @@ defmodule Libremarket.Compras.Server do
 
     %{state | compras: new_compras}
   end
-
 end
