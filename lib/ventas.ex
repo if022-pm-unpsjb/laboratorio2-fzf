@@ -25,7 +25,7 @@ defmodule Libremarket.Ventas do
 
       producto ->
         productos_actualizados = Map.put(productos, id, %{producto | stock: producto.stock - 1})
-        IO.puts("reserva")
+        #IO.puts("reserva")
 
         reservados_actualizados =
           Map.put(reservados, id_compra, %{nombre: producto.nombre, id: id})
@@ -212,7 +212,7 @@ defmodule Libremarket.Ventas.Server do
   def handle_call({:liberar, id_compra}, _from, state) do
     case Libremarket.Ventas.liberar_producto(id_compra, state) do
       {:ok, mensaje, nuevo_state} ->
-        IO.puts("libera")
+        #IO.puts("libera")
         {:reply, {:ok, mensaje}, nuevo_state}
 
       {:error, mensaje} ->
